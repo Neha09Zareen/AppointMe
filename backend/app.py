@@ -1,7 +1,9 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from database import create_tables, add_user, get_user_by_email, get_all_hospitals, add_doctor, get_all_doctors
 
 app = Flask(__name__)
+CORS(app)
 
 @app.route("/")
 def home():
