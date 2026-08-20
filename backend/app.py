@@ -1,7 +1,23 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from database import create_tables, add_user, get_user_by_email, get_all_hospitals, add_doctor, get_all_doctors, cancel_appointment
-
+from database import (
+    create_tables,
+    get_connection,
+    get_all_users,
+    add_user,
+    get_user_by_email,
+    get_all_hospitals,
+    add_doctor,
+    get_all_doctors,
+    book_appointment,
+    get_all_appointments,
+    cancel_appointment,
+    reschedule_appointment,
+    get_appointment_history,
+    add_feedback,
+    get_doctor_feedback,
+    get_doctor_appointments
+)
 app = Flask(__name__)
 CORS(app)
 
@@ -103,11 +119,12 @@ def get_doctor(doctor_id):
     return jsonify({"error": "Doctor not found"}), 404
 
 @app.route("/appointments", methods=["POST"])
-def book_appointment():
+def book_appointment_route():
     data = request.get_json()
 
-    patient_id = data["patient_id"]
+    user_id = data["user_id"]
     doctor_id = data["doctor_id"]
+    hospital_id = data["hospital_id"]
     appointment_date = data["appointment_date"]
     appointment_time = data["appointment_time"]
 
@@ -116,11 +133,12 @@ def book_appointment():
 
     cursor.execute("""
         INSERT INTO appointments
-        (patient_id, doctor_id, appointment_date, appointment_time, status)
-        VALUES (?, ?, ?, ?, ?)
+        (user_id, doctor_id, hospital_id, appointment_date, appointment_time, status)
+        VALUES (?, ?, ?, ?, ?, ?)
     """, (
-        patient_id,
+        user_id,
         doctor_id,
+        hospital_id,
         appointment_date,
         appointment_time,
         "Booked"
@@ -134,7 +152,7 @@ def book_appointment():
     })
 
 @app.route("/appointments/<int:appointment_id>", methods=["DELETE"])
-def cancel_appointment(appointment_id):
+def cancel_appointment_api(appointment_id):
     connection = get_connection()
     cursor = connection.cursor()
 
@@ -159,7 +177,7 @@ def cancel_appointment(appointment_id):
     })
 
 @app.route("/appointments/<int:appointment_id>", methods=["PUT"])
-def reschedule_appointment(appointment_id):
+def reschedule_appointment_api(appointment_id):
     data = request.get_json()
 
     appointment_date = data["appointment_date"]
@@ -195,18 +213,18 @@ def reschedule_appointment(appointment_id):
         "message": "Appointment rescheduled successfully"
     })
 
-@app.route("/appointments/<int:patient_id>", methods=["GET"])
-def get_patient_appointments(patient_id):
+@app.route("/appointments/<int:user_id>", methods=["GET"])
+def get_patient_appointments(user_id):
     connection = get_connection()
     cursor = connection.cursor()
 
     cursor.execute("""
-        SELECT id, patient_id, doctor_id,
+        SELECT id, user_id, doctor_id,
                appointment_date, appointment_time, status
         FROM appointments
-        WHERE patient_id = ?
+        WHERE user_id = ?
         ORDER BY appointment_date, appointment_time
-    """, (patient_id,))
+    """, (user_id,))
 
     appointments = cursor.fetchall()
     connection.close()
@@ -214,7 +232,7 @@ def get_patient_appointments(patient_id):
     return jsonify([
         {
             "id": appointment[0],
-            "patient_id": appointment[1],
+            "user_id": appointment[1],
             "doctor_id": appointment[2],
             "appointment_date": appointment[3],
             "appointment_time": appointment[4],
@@ -222,7 +240,105 @@ def get_patient_appointments(patient_id):
         }
         for appointment in appointments
     ])
+@app.route("/feedback", methods=["POST"])
+def submit_feedback():
+    data = request.get_json()
 
+    user_id = data.get("user_id")
+    doctor_id = data.get("doctor_id")
+    rating = data.get("rating")
+    comment = data.get("comment")
+
+    if not user_id or not doctor_id or not rating:
+        return jsonify({
+            "message": "User, doctor and rating are required"
+        }), 400
+
+    if rating < 1 or rating > 5:
+        return jsonify({
+            "message": "Rating must be between 1 and 5"
+        }), 400
+
+    add_feedback(
+        user_id,
+        doctor_id,
+        rating,
+        comment
+    )
+
+    return jsonify({
+        "message": "Feedback submitted successfully"
+    }), 201
+
+
+@app.route("/feedback/doctor/<int:doctor_id>", methods=["GET"])
+def doctor_feedback(doctor_id):
+    feedback = get_doctor_feedback(doctor_id)
+
+    result = []
+
+    for item in feedback:
+        result.append({
+            "id": item[0],
+            "user_id": item[1],
+            "doctor_id": item[2],
+            "rating": item[3],
+            "comment": item[4],
+            "created_at": item[5],
+            "user_name": item[6]
+        })
+
+    return jsonify(result), 200
+@app.route("/doctor/<int:doctor_id>/appointments", methods=["GET"])
+def doctor_appointments(doctor_id):
+    appointments = get_doctor_appointments(doctor_id)
+
+    result = []
+
+    for appointment in appointments:
+        result.append({
+            "id": appointment[0],
+            "user_id": appointment[1],
+            "patient_name": appointment[2],
+            "hospital_id": appointment[3],
+            "appointment_date": appointment[4],
+            "appointment_time": appointment[5],
+            "status": appointment[6]
+        })
+
+    return jsonify(result), 200
+@app.route("/admin/users", methods=["GET"])
+def admin_users():
+    users = get_all_users()
+
+    return jsonify([
+        {
+            "id": user[0],
+            "name": user[1],
+            "email": user[2],
+            "phone": user[4]
+        }
+        for user in users
+    ])
+@app.route("/admin/appointments", methods=["GET"])
+def admin_appointments():
+    appointments = get_all_appointments()
+
+    return jsonify([
+        {
+            "id": appointment[0],
+            "user_id": appointment[1],
+            "patient_name": appointment[2],
+            "doctor_id": appointment[3],
+            "doctor_name": appointment[4],
+            "hospital_id": appointment[5],
+            "hospital_name": appointment[6],
+            "appointment_date": appointment[7],
+            "appointment_time": appointment[8],
+            "status": appointment[9]
+        }
+        for appointment in appointments
+    ])
 if __name__ == "__main__":
     create_tables()
     app.run(debug=True)
