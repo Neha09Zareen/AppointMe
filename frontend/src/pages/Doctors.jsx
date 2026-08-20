@@ -1,30 +1,46 @@
 import "./Doctors.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import DoctorSearch from "../components/DoctorSearch";
 import DoctorFilter from "../components/DoctorFilter";
 
 function Doctors() {
+const navigate = useNavigate();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSpecialization, setSelectedSpecialization] = useState("All");
 
-const doctors = [
-  {
-    id: 1,
-    name: "Dr. Rahul Sharma",
-    specialization: "Cardiologist",
-    experience: 8,
-    degrees: "MBBS, MD",
-    hospital: "Apollo Hospital",
-  },
-  {
-    id: 2,
-    name: "Dr. Ayesha Khan",
-    specialization: "Neurologist",
-    experience: 6,
-    degrees: "MBBS, DM",
-    hospital: "Yashoda Hospital",
-  },
-];
+  const [doctors, setDoctors] = useState([]);
+
+  useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const doctorsResponse = await fetch("http://127.0.0.1:5000/doctors");
+      const hospitalsResponse = await fetch("http://127.0.0.1:5000/hospitals");
+
+      const doctorsData = await doctorsResponse.json();
+      const hospitalsData = await hospitalsResponse.json();
+
+      const hospitalMap = {};
+
+      hospitalsData.forEach((hospital) => {
+        hospitalMap[hospital.id] = hospital.name;
+      });
+
+      const doctorsWithHospitalNames = doctorsData.map((doctor) => ({
+        ...doctor,
+        hospital: hospitalMap[doctor.hospital_id] || "Unknown Hospital",
+      }));
+
+      setDoctors(doctorsWithHospitalNames);
+      
+    } catch (error) {
+      console.error("Error fetching doctors and hospitals:", error);
+    }
+  };
+
+  fetchData();
+  }, []);
 
 const filteredDoctors = doctors.filter((doctor) => {
   const search = searchTerm.toLowerCase();
@@ -83,7 +99,10 @@ return (
             </p>
           </div>
 
-          <button className="details-button">
+          <button
+            className="details-button"
+            onClick={() => navigate(`/doctor/${doctor.id}`)}
+          >
             View Details
           </button>
         </div>

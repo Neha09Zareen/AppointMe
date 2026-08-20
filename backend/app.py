@@ -77,6 +77,23 @@ def get_doctors():
         for doctor in doctors
     ])
 
+@app.route("/doctors/<int:doctor_id>", methods=["GET"])
+def get_doctor(doctor_id):
+    doctors = get_all_doctors()
+
+    for doctor in doctors:
+        if doctor[0] == doctor_id:
+            return jsonify({
+                "id": doctor[0],
+                "name": doctor[1],
+                "specialization": doctor[2],
+                "experience": doctor[3],
+                "degrees": doctor[4],
+                "hospital_id": doctor[5]
+            })
+
+    return jsonify({"error": "Doctor not found"}), 404
+
 if __name__ == "__main__":
     create_tables()
     app.run(debug=True)
