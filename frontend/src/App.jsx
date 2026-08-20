@@ -1,3 +1,5 @@
+import AppointmentHistory from "./pages/AppointmentHistory";
+import AppointmentBooking from "./pages/AppointmentBooking";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -21,6 +23,16 @@ function App() {
         <Route path="/hospitals" element={<Hospitals />} />
         <Route path="/doctors" element={<Doctors />} />
         <Route path="/doctor/:id" element={<DoctorDetails />} />
+
+        <Route
+          path="/book-appointment/:id"
+          element={<AppointmentBooking />}
+        />
+
+        <Route
+          path="/appointment-history"
+          element={<AppointmentHistory />}
+        />
       </Routes>
 
       <Footer />

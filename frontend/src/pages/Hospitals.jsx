@@ -1,6 +1,9 @@
 import "./Hospitals.css";
+import { useNavigate } from "react-router-dom";
 
 function Hospitals() {
+  const navigate = useNavigate();
+
   const hospitals = [
     {
       id: 1,
@@ -47,7 +50,10 @@ function Hospitals() {
               <strong>Specialty:</strong> {hospital.specialty}
             </p>
 
-            <button className="view-hospital-button">
+            <button
+              className="view-hospital-button"
+              onClick={() => navigate(`/doctors?hospital_id=${hospital.id}`)}
+            >
               View Hospital
             </button>
           </div>

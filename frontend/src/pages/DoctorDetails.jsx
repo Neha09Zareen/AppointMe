@@ -80,7 +80,10 @@ function DoctorDetails() {
           </p>
         </div>
 
-        <button className="book-button">
+        <button
+          className="book-button"
+          onClick={() => window.location.href = `/book-appointment/${doctor.id}`}
+        >
           Book Appointment
         </button>
       </div>

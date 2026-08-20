@@ -1,0 +1,38 @@
+.appointment-history-page {
+  min-height: 70vh;
+  padding: 50px;
+}
+
+.appointment-history-card {
+  max-width: 900px;
+  margin: auto;
+  background: white;
+  padding: 40px;
+  border-radius: 20px;
+}
+
+.appointment-history-card h1 {
+  text-align: center;
+  color: #3f247d;
+  margin-bottom: 30px;
+}
+
+.appointment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.appointment-item {
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+}
+
+.appointment-item h2 {
+  color: #3f247d;
+}
+
+.appointment-item p {
+  font-size: 17px;
+}

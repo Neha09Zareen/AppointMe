@@ -22,24 +22,37 @@ def create_tables():
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS hospitals (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    address TEXT NOT NULL,
-    phone TEXT NOT NULL,
-    rating REAL,
-    speciality TEXT NOT NULL
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        address TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        rating REAL,
+        speciality TEXT NOT NULL
     )
     """)
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS doctors (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    specialization TEXT NOT NULL,
-    experience INTEGER,
-    degrees TEXT,
-    hospital_id INTEGER,
-    FOREIGN KEY (hospital_id) REFERENCES hospitals(id)
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        specialization TEXT NOT NULL,
+        experience INTEGER,
+        degrees TEXT,
+        hospital_id INTEGER,
+        FOREIGN KEY (hospital_id) REFERENCES hospitals(id)
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS appointments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        patient_id INTEGER NOT NULL,
+        doctor_id INTEGER NOT NULL,
+        appointment_date TEXT NOT NULL,
+        appointment_time TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'Booked',
+        FOREIGN KEY (patient_id) REFERENCES users(id),
+        FOREIGN KEY (doctor_id) REFERENCES doctors(id)
     )
     """)
 
@@ -122,3 +135,19 @@ def get_user_by_email(email):
     connection.close()
 
     return user
+
+def cancel_appointment(appointment_id):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        UPDATE appointments
+        SET status = ?
+        WHERE id = ?
+        """,
+        ("Cancelled", appointment_id)
+    )
+
+    connection.commit()
+    connection.close()
