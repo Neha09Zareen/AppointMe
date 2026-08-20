@@ -72,3 +72,30 @@
   font-size: 16px;
   cursor: pointer;
 }
+.time-slots {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 10px 0 25px;
+}
+
+.time-slot {
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+  color: #4b2a91;
+  font-size: 16px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.time-slot:hover {
+  background: #f1edff;
+}
+
+.time-slot.selected {
+  background: #6f42d3;
+  color: white;
+  border-color: #6f42d3;
+}

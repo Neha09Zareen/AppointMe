@@ -12,6 +12,22 @@ function AppointmentBooking() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
+  // Available appointment time slots
+  const timeSlots = [
+    "09:00",
+    "09:30",
+    "10:00",
+    "10:30",
+    "11:00",
+    "11:30",
+    "14:00",
+    "14:30",
+    "15:00",
+    "15:30",
+    "16:00",
+    "16:30",
+  ];
+
   useEffect(() => {
     const fetchDoctor = async () => {
       try {
@@ -132,11 +148,22 @@ function AppointmentBooking() {
 
         <label>Appointment Time</label>
 
-        <input
-          type="time"
-          value={appointmentTime}
-          onChange={(e) => setAppointmentTime(e.target.value)}
-        />
+        <div className="time-slots">
+          {timeSlots.map((time) => (
+            <button
+              type="button"
+              key={time}
+              className={
+                appointmentTime === time
+                  ? "time-slot selected"
+                  : "time-slot"
+              }
+              onClick={() => setAppointmentTime(time)}
+            >
+              {time}
+            </button>
+          ))}
+        </div>
 
         <button
           className="confirm-booking-button"
