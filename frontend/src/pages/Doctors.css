@@ -1,0 +1,89 @@
+.doctors-page {
+  min-height: 100vh;
+  padding: 50px 8%;
+  background: #f7f7fb;
+}
+
+.doctors-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.doctors-header h1 {
+  font-size: 36px;
+  margin-bottom: 10px;
+  color: #2d1b69;
+}
+
+.doctors-header p {
+  font-size: 17px;
+  color: #666;
+}
+
+.doctor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 25px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.doctor-card {
+  background: white;
+  border-radius: 16px;
+  padding: 28px;
+  text-align: center;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.doctor-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+}
+
+.doctor-icon {
+  font-size: 50px;
+  margin-bottom: 10px;
+}
+
+.doctor-card h2 {
+  margin: 8px 0;
+  color: #222;
+  font-size: 22px;
+}
+
+.doctor-specialization {
+  color: #6b46c1;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.doctor-info {
+  text-align: left;
+  margin-bottom: 20px;
+}
+
+.doctor-info p {
+  color: #555;
+  margin: 10px 0;
+  font-size: 14px;
+}
+
+.doctor-info strong {
+  color: #333;
+}
+
+.details-button {
+  border: none;
+  border-radius: 8px;
+  padding: 11px 20px;
+  background: #6b46c1;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.details-button:hover {
+  background: #55339b;
+}

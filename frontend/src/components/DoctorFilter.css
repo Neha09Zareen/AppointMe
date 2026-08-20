@@ -1,0 +1,30 @@
+.doctor-filter {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
+.doctor-filter select {
+  width: 100%;
+  max-width: 450px;
+  padding: 12px 16px;
+  border: 2px solid #6b46c1;
+  border-radius: 10px;
+  font-size: 16px;
+  background-color: white;
+  color: #333;
+  cursor: pointer;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.doctor-filter select:focus {
+  border-color: #4c2a91;
+  box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.15);
+}
+
+.doctor-filter select option {
+  background-color: white;
+  color: #333;
+  padding: 10px;
+}
