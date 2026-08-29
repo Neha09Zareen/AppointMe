@@ -1,0 +1,19 @@
+.doctor-search {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.doctor-search input {
+  width: 100%;
+  max-width: 450px;
+  padding: 12px 16px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 15px;
+  outline: none;
+}
+
+.doctor-search input:focus {
+  border-color: #6b46c1;
+}

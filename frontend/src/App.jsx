@@ -1,11 +1,18 @@
+import AppointmentHistory from "./pages/AppointmentHistory";
+import AppointmentBooking from "./pages/AppointmentBooking";
 import AdminDashboard from "./pages/AdminDashboard";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import Feedback from "./pages/Feedback";
+
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+
+import Hospitals from "./pages/Hospitals";
+import Doctors from "./pages/Doctors";
+import DoctorDetails from "./pages/DoctorDetails";
 
 function App() {
   return (
@@ -13,12 +20,27 @@ function App() {
       <Navbar />
 
       <Routes>
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/doctor" element={<DoctorDashboard />} />
-        <Route path="/feedback" element={<Feedback />} />
         <Route path="/" element={<Register />} />
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
+
+        <Route path="/hospitals" element={<Hospitals />} />
+        <Route path="/doctors" element={<Doctors />} />
+        <Route path="/doctor/:id" element={<DoctorDetails />} />
+
+        <Route
+          path="/book-appointment/:id"
+          element={<AppointmentBooking />}
+        />
+
+        <Route
+          path="/appointment-history"
+          element={<AppointmentHistory />}
+        />
+
+        <Route path="/feedback" element={<Feedback />} />
+        <Route path="/doctor" element={<DoctorDashboard />} />
+        <Route path="/admin" element={<AdminDashboard />} />
       </Routes>
 
       <Footer />

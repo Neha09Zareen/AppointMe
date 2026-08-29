@@ -1,0 +1,60 @@
+.doctor-details-page {
+  min-height: 100vh;
+  padding: 60px 20px;
+  background: #f7f7fb;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.doctor-details-card {
+  width: 100%;
+  max-width: 600px;
+  background: white;
+  border-radius: 18px;
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+}
+
+.doctor-details-icon {
+  font-size: 70px;
+  margin-bottom: 15px;
+}
+
+.doctor-details-card h1 {
+  color: #2d1b69;
+  margin-bottom: 8px;
+}
+
+.doctor-details-specialization {
+  color: #6b46c1;
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 30px;
+}
+
+.doctor-details-info {
+  text-align: left;
+  margin-bottom: 30px;
+}
+
+.doctor-details-info p {
+  padding: 12px 0;
+  border-bottom: 1px solid #eee;
+  color: #555;
+}
+
+.book-button {
+  border: none;
+  border-radius: 8px;
+  padding: 12px 25px;
+  background: #6b46c1;
+  color: white;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.book-button:hover {
+  background: #55339b;
+}
