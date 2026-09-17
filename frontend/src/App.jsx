@@ -1,5 +1,9 @@
 import AppointmentHistory from "./pages/AppointmentHistory";
 import AppointmentBooking from "./pages/AppointmentBooking";
+import AdminDashboard from "./pages/AdminDashboard";
+import DoctorDashboard from "./pages/DoctorDashboard";
+import Feedback from "./pages/Feedback";
+
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -33,6 +37,10 @@ function App() {
           path="/appointment-history"
           element={<AppointmentHistory />}
         />
+
+        <Route path="/feedback" element={<Feedback />} />
+        <Route path="/doctor" element={<DoctorDashboard />} />
+        <Route path="/admin" element={<AdminDashboard />} />
       </Routes>
 
       <Footer />
