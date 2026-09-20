@@ -15,9 +15,9 @@ function AppointmentHistory() {
   const handleCancel = async (appointmentId) => {
     try {
       const response = await fetch(
-        `http://127.0.0.1:5000/appointments/${appointmentId}/cancel`,
+        `http://127.0.0.1:5000/appointments/${appointmentId}`,
         {
-          method: "PUT",
+          method: "DELETE",
         }
       );
 
@@ -43,7 +43,7 @@ function AppointmentHistory() {
       );
     } catch (error) {
       console.error("Error cancelling appointment:", error);
-      alert("Could not cancel appointment.");
+      alert(error.message || "Could not cancel appointment.");
     }
   };
 
@@ -108,7 +108,7 @@ function AppointmentHistory() {
       setNewTime("");
     } catch (error) {
       console.error("Error rescheduling appointment:", error);
-      alert("Could not reschedule appointment.");
+      alert(error.message || "Could not reschedule appointment.");
     }
   };
 
@@ -123,6 +123,12 @@ function AppointmentHistory() {
         );
 
         const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Failed to fetch appointments"
+          );
+        }
 
         setAppointments(data);
       } catch (error) {
@@ -182,7 +188,7 @@ function AppointmentHistory() {
                 </p>
 
                 {/* =========================
-                    BOOKED APPOINTMENT BUTTONS
+                    CANCEL BUTTON
                    ========================= */}
 
                 {appointment.status === "Booked" && (
@@ -198,8 +204,6 @@ function AppointmentHistory() {
 
                 {/* =========================
                     RESCHEDULE BUTTON
-                    AVAILABLE FOR BOOKED
-                    AND RESCHEDULED
                    ========================= */}
 
                 {(appointment.status === "Booked" ||

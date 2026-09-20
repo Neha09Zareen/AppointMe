@@ -81,8 +81,9 @@ function AppointmentBooking() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            patient_id: 1,
+            user_id: 1,
             doctor_id: Number(id),
+            hospital_id: doctor.hospital_id,
             appointment_date: appointmentDate,
             appointment_time: appointmentTime,
           }),
