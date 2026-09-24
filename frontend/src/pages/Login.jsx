@@ -10,7 +10,6 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     setMessage("");
 
     try {
@@ -28,11 +27,9 @@ function Login() {
       const data = await response.json();
 
       if (data.message === "Login Successful") {
-        setMessage("Login successful!");
+        localStorage.setItem("isLoggedIn", "true");
 
-        setTimeout(() => {
-          navigate("/hospitals");
-        }, 500);
+        navigate("/hospitals");
       } else {
         setMessage(data.message);
       }
@@ -44,38 +41,28 @@ function Login() {
 
   return (
     <div>
-      <h1>Hospital Appointment System</h1>
-
       <h2>Login</h2>
 
       <form onSubmit={handleSubmit}>
-        <label>Email</label>
-        <br />
+        <div>
+          <label>Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
 
-        <input
-          type="email"
-          placeholder="Enter your email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-
-        <br />
-        <br />
-
-        <label>Password</label>
-        <br />
-
-        <input
-          type="password"
-          placeholder="Enter your password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-
-        <br />
-        <br />
+        <div>
+          <label>Password</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
 
         <button type="submit">Login</button>
       </form>

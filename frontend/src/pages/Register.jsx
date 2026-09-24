@@ -1,14 +1,18 @@
 import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 
 function Register() {
+  const navigate = useNavigate();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
 
-  const handleRegister = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setMessage("");
 
     try {
       const response = await fetch("http://127.0.0.1:5000/register", {
@@ -26,20 +30,27 @@ function Register() {
 
       const data = await response.json();
 
-      setMessage(data.message);
+      if (response.ok) {
+        localStorage.setItem("isLoggedIn", "true");
+        navigate("/hospitals");
+      } else {
+        setMessage(data.message || "Registration failed");
+      }
     } catch (error) {
+      console.error("Registration error:", error);
       setMessage("Could not connect to backend");
     }
   };
 
   return (
     <div>
-      <h1>Hospital Appointment System</h1>
+      <h1>AppointMe</h1>
 
-      <h2>Register</h2>
+      <p>Healthcare Appointment Scheduling System</p>
 
-      <form onSubmit={handleRegister}>
+      <h2>Create an Account</h2>
 
+      <form onSubmit={handleSubmit}>
         <label>Full Name</label>
         <br />
         <input
@@ -47,6 +58,7 @@ function Register() {
           placeholder="Enter your full name"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          required
         />
 
         <br /><br />
@@ -58,6 +70,7 @@ function Register() {
           placeholder="Enter your email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          required
         />
 
         <br /><br />
@@ -69,6 +82,7 @@ function Register() {
           placeholder="Enter your password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          required
         />
 
         <br /><br />
@@ -80,15 +94,20 @@ function Register() {
           placeholder="Enter your phone number"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
+          required
         />
 
         <br /><br />
 
         <button type="submit">Register</button>
-
       </form>
 
-      <p>{message}</p>
+      {message && <p>{message}</p>}
+
+      <p>
+        Already have an account?{" "}
+        <Link to="/login">Login</Link>
+      </p>
     </div>
   );
 }

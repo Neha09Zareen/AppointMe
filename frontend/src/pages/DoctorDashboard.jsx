@@ -1,4 +1,24 @@
+import { useEffect, useState } from "react";
+
 function DoctorDashboard() {
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const doctorId = 13;
+
+  useEffect(() => {
+    fetch(`http://127.0.0.1:5000/doctor-appointments/${doctorId}`)
+      .then((response) => response.json())
+      .then((data) => {
+        setAppointments(data);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error("Error fetching doctor appointments:", error);
+        setLoading(false);
+      });
+  }, []);
+
   return (
     <div style={{ padding: "30px" }}>
       <h1>Doctor Dashboard</h1>
@@ -12,14 +32,24 @@ function DoctorDashboard() {
           boxShadow: "0 0 10px rgba(0,0,0,0.1)",
         }}
       >
-        <h3>Today's Appointments</h3>
+        <h3>Appointments</h3>
 
-        <ul>
-          <li>9:00 AM - Ahmed Khan</li>
-          <li>10:30 AM - Sara Ali</li>
-          <li>12:00 PM - Fatima Noor</li>
-          <li>2:00 PM - Mohammed Asif</li>
-        </ul>
+        {loading ? (
+          <p>Loading appointments...</p>
+        ) : appointments.length === 0 ? (
+          <p>No appointments found.</p>
+        ) : (
+          <ul>
+            {appointments.map((appointment) => (
+              <li key={appointment.id}>
+                {appointment.appointment_date} -{" "}
+                {appointment.appointment_time} -{" "}
+                {appointment.patient_name} -{" "}
+                {appointment.status}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
