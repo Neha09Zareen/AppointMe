@@ -242,6 +242,24 @@ def book_appointment_route():
                 "message": "User ID is required"
             }), 400
 
+        # Check if user exists before creating the appointment
+        connection = get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            SELECT id
+            FROM users
+            WHERE id = ?
+        """, (int(user_id),))
+
+        user = cursor.fetchone()
+        connection.close()
+
+        if user is None:
+            return jsonify({
+                "message": "User not found"
+            }), 404
+
         if doctor_id is None:
             return jsonify({
                 "message": "Doctor ID is required"
