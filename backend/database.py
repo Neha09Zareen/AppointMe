@@ -5,8 +5,8 @@ DATABASE_NAME = "appointme.db"
 
 def get_connection():
     connection = sqlite3.connect(DATABASE_NAME)
+    connection.execute("PRAGMA foreign_keys = ON")
     return connection
-
 
 def create_tables():
     connection = get_connection()
