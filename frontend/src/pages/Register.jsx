@@ -32,6 +32,10 @@ function Register() {
 
       if (response.ok) {
         localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("userId", data.user_id);
+        localStorage.setItem("userName", data.name);
+        localStorage.setItem("userEmail", data.email);
+
         navigate("/hospitals");
       } else {
         setMessage(data.message || "Registration failed");
@@ -53,6 +57,7 @@ function Register() {
       <form onSubmit={handleSubmit}>
         <label>Full Name</label>
         <br />
+
         <input
           type="text"
           placeholder="Enter your full name"
@@ -61,10 +66,12 @@ function Register() {
           required
         />
 
-        <br /><br />
+        <br />
+        <br />
 
         <label>Email</label>
         <br />
+
         <input
           type="email"
           placeholder="Enter your email"
@@ -73,10 +80,12 @@ function Register() {
           required
         />
 
-        <br /><br />
+        <br />
+        <br />
 
         <label>Password</label>
         <br />
+
         <input
           type="password"
           placeholder="Enter your password"
@@ -85,10 +94,12 @@ function Register() {
           required
         />
 
-        <br /><br />
+        <br />
+        <br />
 
         <label>Phone</label>
         <br />
+
         <input
           type="text"
           placeholder="Enter your phone number"
@@ -97,7 +108,8 @@ function Register() {
           required
         />
 
-        <br /><br />
+        <br />
+        <br />
 
         <button type="submit">Register</button>
       </form>
@@ -105,8 +117,7 @@ function Register() {
       {message && <p>{message}</p>}
 
       <p>
-        Already have an account?{" "}
-        <Link to="/login">Login</Link>
+        Already have an account? <Link to="/login">Login</Link>
       </p>
     </div>
   );

@@ -31,8 +31,14 @@ def register():
             data["phone"]
         )
 
+        # Get the newly registered user's ID
+        user = get_user_by_email(data["email"])
+
         return jsonify({
-            "message": "Registration Successful"
+            "message": "Registration Successful",
+            "user_id": user[0],
+            "name": user[1],
+            "email": user[2]
         })
 
     except Exception as error:
@@ -61,7 +67,10 @@ def login():
         })
 
     return jsonify({
-        "message": "Login Successful"
+        "message": "Login Successful",
+        "user_id": user[0],
+        "name": user[1],
+        "email": user[2]
     })
 
 

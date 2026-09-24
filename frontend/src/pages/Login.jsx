@@ -28,6 +28,9 @@ function Login() {
 
       if (data.message === "Login Successful") {
         localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("userId", data.user_id);
+        localStorage.setItem("userName", data.name);
+        localStorage.setItem("userEmail", data.email);
 
         navigate("/hospitals");
       } else {
@@ -44,25 +47,33 @@ function Login() {
       <h2>Login</h2>
 
       <form onSubmit={handleSubmit}>
-        <div>
-          <label>Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
+        <label>Email</label>
+        <br />
 
-        <div>
-          <label>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
+        <input
+          type="email"
+          placeholder="Enter your email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+
+        <br />
+        <br />
+
+        <label>Password</label>
+        <br />
+
+        <input
+          type="password"
+          placeholder="Enter your password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+
+        <br />
+        <br />
 
         <button type="submit">Login</button>
       </form>

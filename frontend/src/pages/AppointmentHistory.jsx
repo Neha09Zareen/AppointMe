@@ -1,67 +1,75 @@
-import "./AppointmentHistory.css";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 function AppointmentHistory() {
+  const navigate = useNavigate();
+
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
 
-  const [reschedulingId, setReschedulingId] = useState(null);
-  const [newDate, setNewDate] = useState("");
-  const [newTime, setNewTime] = useState("");
+  const userId = localStorage.getItem("userId");
 
-  // =========================
-  // CANCEL APPOINTMENT
-  // =========================
+  const fetchAppointments = async () => {
+    if (!userId) {
+      setMessage("Please login again to view your appointments.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:5000/appointments/${userId}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Could not fetch appointments");
+      }
+
+      const data = await response.json();
+
+      setAppointments(data);
+    } catch (error) {
+      console.error("Error fetching appointments:", error);
+      setMessage("Could not load your appointments.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAppointments();
+  }, [userId]);
+
   const handleCancel = async (appointmentId) => {
     try {
       const response = await fetch(
-        `http://127.0.0.1:5000/appointments/${appointmentId}/cancel`,
+        `http://127.0.0.1:5000/appointments/${appointmentId}`,
         {
-          method: "PUT",
+          method: "DELETE",
         }
       );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message || "Failed to cancel appointment"
-        );
+        throw new Error(data.message || "Could not cancel appointment");
       }
 
-      alert("Appointment cancelled successfully!");
+      setMessage(data.message);
 
-      setAppointments((currentAppointments) =>
-        currentAppointments.map((appointment) =>
-          appointment.id === appointmentId
-            ? {
-                ...appointment,
-                status: "Cancelled",
-              }
-            : appointment
-        )
-      );
+      fetchAppointments();
     } catch (error) {
-      console.error("Error cancelling appointment:", error);
-      alert("Could not cancel appointment.");
+      console.error("Cancel error:", error);
+      setMessage(error.message);
     }
   };
 
-  // =========================
-  // START RESCHEDULING
-  // =========================
-  const handleStartReschedule = (appointment) => {
-    setReschedulingId(appointment.id);
-    setNewDate(appointment.appointment_date);
-    setNewTime(appointment.appointment_time);
-  };
-
-  // =========================
-  // RESCHEDULE APPOINTMENT
-  // =========================
   const handleReschedule = async (appointmentId) => {
+    const newDate = prompt("Enter new appointment date (YYYY-MM-DD):");
+    const newTime = prompt("Enter new appointment time (HH:MM):");
+
     if (!newDate || !newTime) {
-      alert("Please select a date and time.");
       return;
     }
 
@@ -84,192 +92,109 @@ function AppointmentHistory() {
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Failed to reschedule appointment"
+          data.message || "Could not reschedule appointment"
         );
       }
 
-      alert("Appointment rescheduled successfully!");
+      setMessage(data.message);
 
-      setAppointments((currentAppointments) =>
-        currentAppointments.map((appointment) =>
-          appointment.id === appointmentId
-            ? {
-                ...appointment,
-                appointment_date: newDate,
-                appointment_time: newTime,
-                status: "Rescheduled",
-              }
-            : appointment
-        )
-      );
-
-      setReschedulingId(null);
-      setNewDate("");
-      setNewTime("");
+      fetchAppointments();
     } catch (error) {
-      console.error("Error rescheduling appointment:", error);
-      alert("Could not reschedule appointment.");
+      console.error("Reschedule error:", error);
+      setMessage(error.message);
     }
   };
 
-  // =========================
-  // FETCH APPOINTMENTS
-  // =========================
-  useEffect(() => {
-    const fetchAppointments = async () => {
-      try {
-        const response = await fetch(
-          "http://127.0.0.1:5000/appointments/1"
-        );
-
-        const data = await response.json();
-
-        setAppointments(data);
-      } catch (error) {
-        console.error("Error fetching appointments:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAppointments();
-  }, []);
-
-  // =========================
-  // LOADING
-  // =========================
   if (loading) {
-    return <p>Loading appointment history...</p>;
+    return <p>Loading appointments...</p>;
   }
 
-  // =========================
-  // PAGE
-  // =========================
   return (
-    <div className="appointment-history-page">
-      <div className="appointment-history-card">
+    <div style={{ padding: "30px" }}>
+      <h1>Appointment History</h1>
 
-        <h1>Appointment History</h1>
+      {message && <p>{message}</p>}
 
-        {appointments.length === 0 ? (
+      {appointments.length === 0 ? (
+        <div>
           <p>No appointments found.</p>
-        ) : (
-          <div className="appointment-list">
 
-            {appointments.map((appointment) => (
-              <div
-                className="appointment-item"
-                key={appointment.id}
-              >
+          <button onClick={() => navigate("/hospitals")}>
+            Book an Appointment
+          </button>
+        </div>
+      ) : (
+        <div>
+          {appointments.map((appointment) => (
+            <div
+              key={appointment.id}
+              style={{
+                border: "1px solid #ccc",
+                borderRadius: "10px",
+                padding: "20px",
+                marginBottom: "15px",
+              }}
+            >
+              <p>
+                <strong>Appointment ID:</strong>{" "}
+                {appointment.id}
+              </p>
 
-                <h2>
-                  Doctor ID: {appointment.doctor_id}
-                </h2>
+              <p>
+                <strong>Doctor ID:</strong>{" "}
+                {appointment.doctor_id}
+              </p>
 
-                <p>
-                  <strong>Date:</strong>{" "}
-                  {appointment.appointment_date}
-                </p>
+              <p>
+                <strong>Date:</strong>{" "}
+                {appointment.appointment_date}
+              </p>
 
-                <p>
-                  <strong>Time:</strong>{" "}
-                  {appointment.appointment_time}
-                </p>
+              <p>
+                <strong>Time:</strong>{" "}
+                {appointment.appointment_time}
+              </p>
 
-                <p>
-                  <strong>Status:</strong>{" "}
-                  {appointment.status}
-                </p>
+              <p>
+                <strong>Status:</strong>{" "}
+                {appointment.status}
+              </p>
 
-                {/* =========================
-                    BOOKED APPOINTMENT BUTTONS
-                   ========================= */}
-
-                {appointment.status === "Booked" && (
+              {appointment.status !== "Cancelled" && (
+                <div>
                   <button
-                    className="cancel-appointment-button"
                     onClick={() =>
                       handleCancel(appointment.id)
                     }
                   >
                     Cancel Appointment
                   </button>
-                )}
 
-                {/* =========================
-                    RESCHEDULE BUTTON
-                    AVAILABLE FOR BOOKED
-                    AND RESCHEDULED
-                   ========================= */}
-
-                {(appointment.status === "Booked" ||
-                  appointment.status === "Rescheduled") && (
                   <button
-                    className="reschedule-appointment-button"
                     onClick={() =>
-                      handleStartReschedule(appointment)
+                      handleReschedule(appointment.id)
                     }
+                    style={{ marginLeft: "10px" }}
                   >
                     Reschedule Appointment
                   </button>
-                )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
-                {/* =========================
-                    RESCHEDULE FORM
-                   ========================= */}
+      <div style={{ marginTop: "30px" }}>
+        <button onClick={() => navigate("/feedback")}>
+          Give Feedback
+        </button>
+      </div>
 
-                {reschedulingId === appointment.id && (
-                  <div className="reschedule-form">
-
-                    <label>New Date</label>
-
-                    <input
-                      type="date"
-                      value={newDate}
-                      onChange={(e) =>
-                        setNewDate(e.target.value)
-                      }
-                    />
-
-                    <label>New Time</label>
-
-                    <input
-                      type="time"
-                      value={newTime}
-                      onChange={(e) =>
-                        setNewTime(e.target.value)
-                      }
-                    />
-
-                    <button
-                      className="confirm-reschedule-button"
-                      onClick={() =>
-                        handleReschedule(appointment.id)
-                      }
-                    >
-                      Confirm Reschedule
-                    </button>
-
-                    <button
-                      className="cancel-reschedule-button"
-                      onClick={() => {
-                        setReschedulingId(null);
-                        setNewDate("");
-                        setNewTime("");
-                      }}
-                    >
-                      Go Back
-                    </button>
-
-                  </div>
-                )}
-
-              </div>
-            ))}
-
-          </div>
-        )}
-
+      <div style={{ marginTop: "15px" }}>
+        <button onClick={() => navigate("/hospitals")}>
+          Back to Hospitals
+        </button>
       </div>
     </div>
   );

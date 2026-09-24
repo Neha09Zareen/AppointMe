@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import "./AppointmentBooking.css";
 
 function AppointmentBooking() {
   const { id } = useParams();
+  const navigate = useNavigate();
 
   const [doctor, setDoctor] = useState(null);
   const [hospitalName, setHospitalName] = useState("");
@@ -11,8 +12,8 @@ function AppointmentBooking() {
   const [appointmentTime, setAppointmentTime] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [bookingSuccessful, setBookingSuccessful] = useState(false);
 
-  // Available appointment time slots
   const timeSlots = [
     "09:00",
     "09:30",
@@ -72,6 +73,13 @@ function AppointmentBooking() {
       return;
     }
 
+    const userId = localStorage.getItem("userId");
+
+    if (!userId) {
+      setMessage("Please login again before booking an appointment.");
+      return;
+    }
+
     try {
       const response = await fetch(
         "http://127.0.0.1:5000/appointments",
@@ -81,7 +89,7 @@ function AppointmentBooking() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            patient_id: 1,
+            patient_id: Number(userId),
             doctor_id: Number(id),
             appointment_date: appointmentDate,
             appointment_time: appointmentTime,
@@ -96,9 +104,11 @@ function AppointmentBooking() {
       }
 
       setMessage("Appointment booked successfully!");
+      setBookingSuccessful(true);
     } catch (error) {
       console.error("Booking error:", error);
       setMessage(error.message);
+      setBookingSuccessful(false);
     }
   };
 
@@ -176,6 +186,15 @@ function AppointmentBooking() {
           <p className="booking-message">
             {message}
           </p>
+        )}
+
+        {bookingSuccessful && (
+          <button
+            type="button"
+            onClick={() => navigate("/appointment-history")}
+          >
+            View Appointment History
+          </button>
         )}
 
       </div>
