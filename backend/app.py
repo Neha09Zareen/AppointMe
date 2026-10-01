@@ -484,15 +484,62 @@ def submit_feedback():
         rating = data.get("rating")
         comment = data.get("comment")
 
-        if user_id is None or doctor_id is None or rating is None:
+        if user_id is None:
             return jsonify({
-                "message": "User, doctor and rating are required"
+                "message": "User ID is required"
             }), 400
 
-        if int(rating) < 1 or int(rating) > 5:
+        if doctor_id is None:
+            return jsonify({
+                "message": "Doctor ID is required"
+            }), 400
+
+        if rating is None:
+            return jsonify({
+                "message": "Rating is required"
+            }), 400
+
+        if not 1 <= int(rating) <= 5:
             return jsonify({
                 "message": "Rating must be between 1 and 5"
             }), 400
+
+        connection = get_connection()
+        cursor = connection.cursor()
+
+        # Check if user exists
+        cursor.execute("""
+            SELECT id
+            FROM users
+            WHERE id = ?
+        """, (int(user_id),))
+
+        user = cursor.fetchone()
+
+        if user is None:
+            connection.close()
+
+            return jsonify({
+                "message": "User not found"
+            }), 404
+
+        # Check if doctor exists
+        cursor.execute("""
+            SELECT id
+            FROM doctors
+            WHERE id = ?
+        """, (int(doctor_id),))
+
+        doctor = cursor.fetchone()
+
+        if doctor is None:
+            connection.close()
+
+            return jsonify({
+                "message": "Doctor not found"
+            }), 404
+
+        connection.close()
 
         add_feedback(
             int(user_id),
