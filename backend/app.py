@@ -1,24 +1,36 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+
 from database import (
     create_tables,
     add_user,
     get_user_by_email,
+    get_doctor_by_login_id,
+    get_admin_by_login_id,
+    add_admin,
     get_all_hospitals,
     get_all_doctors,
     get_connection
 )
 
+
 app = Flask(__name__)
 CORS(app)
 
+
+# =========================
+# HOME
+# =========================
 
 @app.route("/")
 def home():
     return "Welcome to AppointMe Backend!"
 
 
-# REGISTER
+# =========================
+# PATIENT REGISTER
+# =========================
+
 @app.route("/register", methods=["POST"])
 def register():
     data = request.get_json()
@@ -31,7 +43,6 @@ def register():
             data["phone"]
         )
 
-        # Get the newly registered user's ID
         user = get_user_by_email(data["email"])
 
         return jsonify({
@@ -49,7 +60,10 @@ def register():
         }), 400
 
 
-# LOGIN
+# =========================
+# PATIENT LOGIN
+# =========================
+
 @app.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
@@ -74,7 +88,330 @@ def login():
     })
 
 
+# =========================
+# DOCTOR REGISTER
+# =========================
+
+@app.route("/doctor-register", methods=["POST"])
+def doctor_register():
+    data = request.get_json()
+
+    try:
+        name = data["name"]
+        email = data["email"]
+        password = data["password"]
+        phone = data["phone"]
+        specialization = data["specialization"]
+        experience = data["experience"]
+        degrees = data["degrees"]
+        hospital_id = data["hospital_id"]
+
+        connection = get_connection()
+        cursor = connection.cursor()
+
+        # Check doctor account email
+        cursor.execute(
+            "SELECT id FROM doctor_accounts WHERE login_id = ?",
+            (email,)
+        )
+
+        existing_doctor = cursor.fetchone()
+
+        if existing_doctor:
+            connection.close()
+
+            return jsonify({
+                "message": "Doctor account already exists"
+            }), 400
+
+        # Check whether email is already used by a patient
+        cursor.execute(
+            "SELECT id FROM users WHERE email = ?",
+            (email,)
+        )
+
+        existing_patient = cursor.fetchone()
+
+        if existing_patient:
+            connection.close()
+
+            return jsonify({
+                "message": "This email is already registered as a patient account"
+            }), 400
+
+        # Create doctor profile
+        cursor.execute("""
+            INSERT INTO doctors
+            (name, specialization, experience, degrees, hospital_id)
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            name,
+            specialization,
+            experience,
+            degrees,
+            hospital_id
+        ))
+
+        doctor_id = cursor.lastrowid
+
+        # Create doctor login account as Pending
+        cursor.execute("""
+            INSERT INTO doctor_accounts
+            (doctor_id, login_id, password, status)
+            VALUES (?, ?, ?, ?)
+        """, (
+            doctor_id,
+            email,
+            password,
+            "Pending"
+        ))
+
+        connection.commit()
+        connection.close()
+
+        return jsonify({
+            "message": "Doctor registration submitted. Waiting for admin approval.",
+            "doctor_id": doctor_id
+        })
+
+    except Exception as error:
+        print("Doctor registration error:", error)
+
+        return jsonify({
+            "message": "Doctor registration failed"
+        }), 400
+
+
+# =========================
+# DOCTOR LOGIN
+# =========================
+
+@app.route("/doctor-login", methods=["POST"])
+def doctor_login():
+    data = request.get_json()
+
+    doctor = get_doctor_by_login_id(data["login_id"])
+
+    if doctor is None:
+        return jsonify({
+            "message": "Invalid doctor login ID"
+        }), 401
+
+    # doctor[3] = password
+    if doctor[3] != data["password"]:
+        return jsonify({
+            "message": "Incorrect password"
+        }), 401
+
+    # doctor[4] = account status
+    if doctor[4] != "Approved":
+        return jsonify({
+            "message": "Your doctor account is still waiting for admin approval."
+        }), 403
+
+    return jsonify({
+        "message": "Doctor Login Successful",
+        "doctor_id": doctor[1],
+        "login_id": doctor[2],
+        "name": doctor[5],
+        "specialization": doctor[6],
+        "experience": doctor[7],
+        "degrees": doctor[8],
+        "hospital_id": doctor[9]
+    })
+
+
+# =========================
+# ADMIN REGISTER
+# =========================
+
+@app.route("/admin-register", methods=["POST"])
+def admin_register():
+    data = request.get_json()
+
+    ADMIN_REGISTRATION_KEY = "APPOINTME-ADMIN"
+
+    login_id = data.get("login_id")
+    password = data.get("password")
+    registration_key = data.get("registration_key")
+
+    if not login_id or not password or not registration_key:
+        return jsonify({
+            "message": "All fields are required"
+        }), 400
+
+    if registration_key != ADMIN_REGISTRATION_KEY:
+        return jsonify({
+            "message": "Invalid admin registration key"
+        }), 403
+
+    existing_admin = get_admin_by_login_id(login_id)
+
+    if existing_admin:
+        return jsonify({
+            "message": "Admin login ID already exists"
+        }), 400
+
+    try:
+        add_admin(
+            login_id,
+            password
+        )
+
+        return jsonify({
+            "message": "Admin registration successful"
+        })
+
+    except Exception as error:
+        print("Admin registration error:", error)
+
+        return jsonify({
+            "message": "Admin registration failed"
+        }), 400
+
+
+# =========================
+# ADMIN LOGIN
+# =========================
+
+@app.route("/admin-login", methods=["POST"])
+def admin_login():
+    data = request.get_json()
+
+    admin = get_admin_by_login_id(data["login_id"])
+
+    if admin is None:
+        return jsonify({
+            "message": "Invalid admin login ID"
+        }), 401
+
+    if admin[2] != data["password"]:
+        return jsonify({
+            "message": "Incorrect password"
+        }), 401
+
+    return jsonify({
+        "message": "Admin Login Successful",
+        "admin_id": admin[0],
+        "login_id": admin[1]
+    })
+
+
+# =========================
+# ADMIN - PENDING DOCTORS
+# =========================
+
+@app.route("/admin/pending-doctors", methods=["GET"])
+def get_pending_doctors():
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            doctor_accounts.id,
+            doctors.id,
+            doctors.name,
+            doctor_accounts.login_id,
+            doctors.specialization,
+            doctors.experience,
+            doctors.degrees,
+            doctors.hospital_id,
+            doctor_accounts.status
+        FROM doctor_accounts
+        JOIN doctors
+        ON doctor_accounts.doctor_id = doctors.id
+        WHERE doctor_accounts.status = 'Pending'
+        ORDER BY doctor_accounts.id DESC
+    """)
+
+    doctors = cursor.fetchall()
+
+    connection.close()
+
+    return jsonify([
+        {
+            "account_id": doctor[0],
+            "doctor_id": doctor[1],
+            "name": doctor[2],
+            "email": doctor[3],
+            "specialization": doctor[4],
+            "experience": doctor[5],
+            "degrees": doctor[6],
+            "hospital_id": doctor[7],
+            "status": doctor[8]
+        }
+        for doctor in doctors
+    ])
+
+
+# =========================
+# ADMIN - APPROVE DOCTOR
+# =========================
+
+@app.route("/admin/doctors/<int:doctor_id>/approve", methods=["PUT"])
+def approve_doctor(doctor_id):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        UPDATE doctor_accounts
+        SET status = 'Approved'
+        WHERE doctor_id = ?
+        AND status = 'Pending'
+    """, (doctor_id,))
+
+    connection.commit()
+
+    if cursor.rowcount == 0:
+        connection.close()
+
+        return jsonify({
+            "message": "Pending doctor account not found"
+        }), 404
+
+    connection.close()
+
+    return jsonify({
+        "message": "Doctor approved successfully"
+    })
+
+
+# =========================
+# ADMIN - REJECT DOCTOR
+# =========================
+
+@app.route("/admin/doctors/<int:doctor_id>/reject", methods=["PUT"])
+def reject_doctor(doctor_id):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        UPDATE doctor_accounts
+        SET status = 'Rejected'
+        WHERE doctor_id = ?
+        AND status = 'Pending'
+    """, (doctor_id,))
+
+    connection.commit()
+
+    if cursor.rowcount == 0:
+        connection.close()
+
+        return jsonify({
+            "message": "Pending doctor account not found"
+        }), 404
+
+    connection.close()
+
+    return jsonify({
+        "message": "Doctor rejected successfully"
+    })
+
+
+# =========================
 # HOSPITALS
+# =========================
+
 @app.route("/hospitals", methods=["GET"])
 def get_hospitals():
     hospitals = get_all_hospitals()
@@ -92,7 +429,10 @@ def get_hospitals():
     ])
 
 
+# =========================
 # DOCTORS
+# =========================
+
 @app.route("/doctors", methods=["GET"])
 def get_doctors():
     doctors = get_all_doctors()
@@ -130,7 +470,10 @@ def get_doctor(doctor_id):
     }), 404
 
 
+# =========================
 # BOOK APPOINTMENT
+# =========================
+
 @app.route("/appointments", methods=["POST"])
 def book_appointment():
     data = request.get_json()
@@ -163,7 +506,10 @@ def book_appointment():
     })
 
 
+# =========================
 # CANCEL APPOINTMENT
+# =========================
+
 @app.route("/appointments/<int:appointment_id>", methods=["DELETE"])
 def cancel_appointment(appointment_id):
     connection = get_connection()
@@ -191,7 +537,10 @@ def cancel_appointment(appointment_id):
     })
 
 
+# =========================
 # RESCHEDULE APPOINTMENT
+# =========================
+
 @app.route("/appointments/<int:appointment_id>", methods=["PUT"])
 def reschedule_appointment(appointment_id):
     data = request.get_json()
@@ -231,7 +580,10 @@ def reschedule_appointment(appointment_id):
     })
 
 
+# =========================
 # PATIENT APPOINTMENTS
+# =========================
+
 @app.route("/appointments/<int:patient_id>", methods=["GET"])
 def get_patient_appointments(patient_id):
     connection = get_connection()
@@ -266,7 +618,10 @@ def get_patient_appointments(patient_id):
     ])
 
 
+# =========================
 # DOCTOR APPOINTMENTS
+# =========================
+
 @app.route("/doctor-appointments/<int:doctor_id>", methods=["GET"])
 def get_doctor_appointments(doctor_id):
     connection = get_connection()
@@ -304,7 +659,57 @@ def get_doctor_appointments(doctor_id):
     ])
 
 
+# =========================
+# ADMIN - ALL APPOINTMENTS
+# =========================
+
+@app.route("/admin/appointments", methods=["GET"])
+def get_all_admin_appointments():
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            appointments.id,
+            appointments.patient_id,
+            users.name,
+            appointments.doctor_id,
+            doctors.name,
+            appointments.appointment_date,
+            appointments.appointment_time,
+            appointments.status
+        FROM appointments
+        JOIN users
+        ON appointments.patient_id = users.id
+        JOIN doctors
+        ON appointments.doctor_id = doctors.id
+        ORDER BY appointments.appointment_date,
+                 appointments.appointment_time
+    """)
+
+    appointments = cursor.fetchall()
+
+    connection.close()
+
+    return jsonify([
+        {
+            "id": appointment[0],
+            "patient_id": appointment[1],
+            "patient_name": appointment[2],
+            "doctor_id": appointment[3],
+            "doctor_name": appointment[4],
+            "appointment_date": appointment[5],
+            "appointment_time": appointment[6],
+            "status": appointment[7]
+        }
+        for appointment in appointments
+    ])
+
+
+# =========================
 # SUBMIT FEEDBACK
+# =========================
+
 @app.route("/feedback", methods=["POST"])
 def submit_feedback():
     data = request.get_json()
@@ -335,16 +740,26 @@ def submit_feedback():
     })
 
 
+# =========================
 # ADMIN STATISTICS
+# =========================
+
 @app.route("/admin-stats", methods=["GET"])
 def get_admin_stats():
     connection = get_connection()
     cursor = connection.cursor()
 
-    cursor.execute("SELECT COUNT(*) FROM doctors")
+    # Count only approved doctors
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM doctor_accounts
+        WHERE status = 'Approved'
+    """)
+
     total_doctors = cursor.fetchone()[0]
 
     cursor.execute("SELECT COUNT(*) FROM users")
+
     total_patients = cursor.fetchone()[0]
 
     cursor.execute("""
@@ -352,6 +767,7 @@ def get_admin_stats():
         FROM appointments
         WHERE appointment_date = DATE('now')
     """)
+
     appointments_today = cursor.fetchone()[0]
 
     cursor.execute("""
@@ -359,6 +775,7 @@ def get_admin_stats():
         FROM feedback
         WHERE status = 'Pending'
     """)
+
     pending_feedback = cursor.fetchone()[0]
 
     connection.close()
@@ -370,6 +787,10 @@ def get_admin_stats():
         "pending_feedback": pending_feedback
     })
 
+
+# =========================
+# START SERVER
+# =========================
 
 if __name__ == "__main__":
     create_tables()

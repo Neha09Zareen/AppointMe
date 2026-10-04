@@ -3,10 +3,22 @@ import AppointmentBooking from "./pages/AppointmentBooking";
 import AdminDashboard from "./pages/AdminDashboard";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import Feedback from "./pages/Feedback";
+import RoleSelection from "./pages/RoleSelection";
+import DoctorLogin from "./pages/DoctorLogin";
+import DoctorRegister from "./pages/DoctorRegister";
+import AdminLogin from "./pages/AdminLogin";
+import AdminRegister from "./pages/AdminRegister";
 
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useLocation,
+} from "react-router-dom";
+
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 
@@ -16,27 +28,46 @@ import DoctorDetails from "./pages/DoctorDetails";
 
 import ProtectedRoute from "./ProtectedRoute";
 
+
 function AppContent() {
   const location = useLocation();
 
+  const hideNavbar =
+    location.pathname === "/" ||
+    location.pathname === "/login" ||
+    location.pathname === "/register" ||
+    location.pathname === "/doctor-login" ||
+    location.pathname === "/doctor-register" ||
+    location.pathname === "/admin-login" ||
+    location.pathname === "/admin-register";
+
   return (
     <>
-      {/* Hide Navbar on the starting/register page */}
-      {location.pathname !== "/" && <Navbar />}
+      {!hideNavbar && <Navbar />}
 
       <Routes>
-        {/* AppointMe Starting Page */}
-        <Route path="/" element={<Register />} />
 
-        {/* Registration and Login */}
-        <Route path="/register" element={<Register />} />
-        <Route path="/login" element={<Login />} />
+        {/* ROLE SELECTION */}
+        <Route
+          path="/"
+          element={<RoleSelection />}
+        />
 
-        {/* Protected Patient Flow */}
+        {/* PATIENT */}
+        <Route
+          path="/register"
+          element={<Register />}
+        />
+
+        <Route
+          path="/login"
+          element={<Login />}
+        />
+
         <Route
           path="/hospitals"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="patient">
               <Hospitals />
             </ProtectedRoute>
           }
@@ -45,7 +76,7 @@ function AppContent() {
         <Route
           path="/doctors"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="patient">
               <Doctors />
             </ProtectedRoute>
           }
@@ -54,7 +85,7 @@ function AppContent() {
         <Route
           path="/doctor/:id"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="patient">
               <DoctorDetails />
             </ProtectedRoute>
           }
@@ -63,7 +94,7 @@ function AppContent() {
         <Route
           path="/book-appointment/:id"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="patient">
               <AppointmentBooking />
             </ProtectedRoute>
           }
@@ -72,7 +103,7 @@ function AppContent() {
         <Route
           path="/appointment-history"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="patient">
               <AppointmentHistory />
             </ProtectedRoute>
           }
@@ -81,23 +112,59 @@ function AppContent() {
         <Route
           path="/feedback"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="patient">
               <Feedback />
             </ProtectedRoute>
           }
         />
 
-        {/* Doctor Dashboard */}
-        <Route path="/doctor" element={<DoctorDashboard />} />
+        {/* DOCTOR */}
+        <Route
+          path="/doctor-login"
+          element={<DoctorLogin />}
+        />
 
-        {/* Admin Dashboard */}
-        <Route path="/admin" element={<AdminDashboard />} />
+        <Route
+          path="/doctor-register"
+          element={<DoctorRegister />}
+        />
+
+        <Route
+          path="/doctor"
+          element={
+            <ProtectedRoute requiredRole="doctor">
+              <DoctorDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ADMIN */}
+        <Route
+          path="/admin-login"
+          element={<AdminLogin />}
+        />
+
+        <Route
+          path="/admin-register"
+          element={<AdminRegister />}
+        />
+
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+
       </Routes>
 
       <Footer />
     </>
   );
 }
+
 
 function App() {
   return (
@@ -106,5 +173,6 @@ function App() {
     </BrowserRouter>
   );
 }
+
 
 export default App;

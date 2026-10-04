@@ -32,6 +32,8 @@ function Register() {
 
       if (response.ok) {
         localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("userRole", "patient");
+
         localStorage.setItem("userId", data.user_id);
         localStorage.setItem("userName", data.name);
         localStorage.setItem("userEmail", data.email);
@@ -52,7 +54,7 @@ function Register() {
 
       <p>Healthcare Appointment Scheduling System</p>
 
-      <h2>Create an Account</h2>
+      <h2>Create Patient Account</h2>
 
       <form onSubmit={handleSubmit}>
         <label>Full Name</label>

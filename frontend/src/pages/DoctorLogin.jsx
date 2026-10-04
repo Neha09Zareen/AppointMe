@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-function Login() {
+function DoctorLogin() {
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState("");
+  const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
@@ -13,50 +13,52 @@ function Login() {
     setMessage("");
 
     try {
-      const response = await fetch("http://127.0.0.1:5000/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-        }),
-      });
+      const response = await fetch(
+        "http://127.0.0.1:5000/doctor-login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            login_id: loginId,
+            password: password,
+          }),
+        }
+      );
 
       const data = await response.json();
 
-      if (data.message === "Login Successful") {
+      if (response.ok && data.message === "Doctor Login Successful") {
         localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("userRole", "patient");
+        localStorage.setItem("userRole", "doctor");
 
-        localStorage.setItem("userId", data.user_id);
+        localStorage.setItem("doctorId", data.doctor_id);
         localStorage.setItem("userName", data.name);
-        localStorage.setItem("userEmail", data.email);
 
-        navigate("/hospitals");
+        navigate("/doctor");
       } else {
-        setMessage(data.message);
+        setMessage(data.message || "Doctor login failed");
       }
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("Doctor login error:", error);
       setMessage("Could not connect to backend");
     }
   };
 
   return (
     <div>
-      <h2>Patient Login</h2>
+      <h2>Doctor Login</h2>
 
       <form onSubmit={handleSubmit}>
-        <label>Email</label>
+        <label>Login ID</label>
         <br />
 
         <input
-          type="email"
-          placeholder="Enter your email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="text"
+          placeholder="Enter your doctor login ID"
+          value={loginId}
+          onChange={(e) => setLoginId(e.target.value)}
           required
         />
 
@@ -85,4 +87,4 @@ function Login() {
   );
 }
 
-export default Login;
+export default DoctorLogin;

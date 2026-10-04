@@ -14,20 +14,32 @@ function AppointmentBooking() {
   const [loading, setLoading] = useState(true);
   const [bookingSuccessful, setBookingSuccessful] = useState(false);
 
+  // Specific appointment slots
   const timeSlots = [
     "09:00",
-    "09:30",
     "10:00",
-    "10:30",
     "11:00",
-    "11:30",
     "14:00",
-    "14:30",
     "15:00",
-    "15:30",
     "16:00",
-    "16:30",
+    "17:00",
+    "18:00",
+    "19:00",
+    "20:00",
   ];
+
+  // Get today's date in YYYY-MM-DD format
+  const getTodayDate = () => {
+    const today = new Date();
+
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  };
+
+  const todayDate = getTodayDate();
 
   useEffect(() => {
     const fetchDoctor = async () => {
@@ -67,9 +79,29 @@ function AppointmentBooking() {
     fetchDoctor();
   }, [id]);
 
+  const handleDateChange = (e) => {
+    const selectedDate = e.target.value;
+
+    setAppointmentDate(selectedDate);
+    setAppointmentTime("");
+    setMessage("");
+
+    // Extra protection against selecting a past date
+    if (selectedDate < todayDate) {
+      setAppointmentDate("");
+      setMessage("Please select today or a future date.");
+    }
+  };
+
   const handleBooking = async () => {
     if (!appointmentDate || !appointmentTime) {
       setMessage("Please select both date and time.");
+      return;
+    }
+
+    // Prevent past dates
+    if (appointmentDate < todayDate) {
+      setMessage("Please select today or a future date.");
       return;
     }
 
@@ -152,8 +184,9 @@ function AppointmentBooking() {
 
         <input
           type="date"
+          min={todayDate}
           value={appointmentDate}
-          onChange={(e) => setAppointmentDate(e.target.value)}
+          onChange={handleDateChange}
         />
 
         <label>Appointment Time</label>
@@ -168,7 +201,10 @@ function AppointmentBooking() {
                   ? "time-slot selected"
                   : "time-slot"
               }
-              onClick={() => setAppointmentTime(time)}
+              onClick={() => {
+                setAppointmentTime(time);
+                setMessage("");
+              }}
             >
               {time}
             </button>
