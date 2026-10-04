@@ -1,5 +1,8 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import os
+from dotenv import load_dotenv
+from google import genai
 
 from database import (
     create_tables,
@@ -18,6 +21,10 @@ from database import (
     get_doctor_feedback,
     get_doctor_appointments
 )
+
+load_dotenv()
+
+client = genai.Client()
 
 app = Flask(__name__)
 CORS(app)
@@ -687,6 +694,55 @@ def admin_appointments():
 # =========================
 # START SERVER
 # =========================
+
+@app.route("/symptom-summary", methods=["POST"])
+def symptom_summary():
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                "message": "No data received"
+            }), 400
+
+        symptoms = data.get("symptoms")
+
+        if not symptoms or not symptoms.strip():
+            return jsonify({
+                "message": "Symptoms are required"
+            }), 400
+
+        prompt = f"""
+You are a healthcare assistant for the AppointMe application.
+
+Your task is ONLY to summarize the symptoms reported by the patient.
+Do NOT diagnose the patient.
+Do NOT suggest diseases, medications, or treatments.
+Do NOT add symptoms that the patient did not mention.
+
+Create a concise, professional summary that a doctor can quickly read.
+
+Patient's reported symptoms:
+{symptoms}
+
+Return only the symptom summary.
+"""
+
+        response = client.models.generate_content(
+            model="gemini-3.8-flash",
+            contents=prompt
+        )
+
+        return jsonify({
+            "summary": response.text
+        }), 200
+
+    except Exception as error:
+        print("SYMPTOM SUMMARY ERROR:", error)
+
+        return jsonify({
+            "message": str(error)
+        }), 500
 
 if __name__ == "__main__":
     create_tables()

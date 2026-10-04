@@ -113,7 +113,6 @@ def get_all_hospitals():
 
     return hospitals
 
-
 def add_doctor(name, specialization, experience, degrees, hospital_id):
     connection = get_connection()
     cursor = connection.cursor()
