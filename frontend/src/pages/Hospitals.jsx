@@ -6,7 +6,7 @@ function Hospitals() {
 
   const hospitals = [
     {
-      id: 1,
+      id: 15,
       name: "Apollo Hospital",
       address: "Jubilee Hills, Hyderabad",
       phone: "04012345678",
@@ -14,7 +14,7 @@ function Hospitals() {
       specialty: "Cardiology",
     },
     {
-      id: 2,
+      id: 16,
       name: "Yashoda Hospital",
       address: "Somajiguda, Hyderabad",
       phone: "04087654321",
@@ -29,30 +29,41 @@ function Hospitals() {
 
       <div className="hospital-list">
         {hospitals.map((hospital) => (
-          <div className="hospital-card" key={hospital.id}>
+          <div
+            className="hospital-card"
+            key={hospital.id}
+          >
             <div className="hospital-icon">🏥</div>
 
             <h2>{hospital.name}</h2>
 
             <p>
-              <strong>Address:</strong> {hospital.address}
+              <strong>Address:</strong>{" "}
+              {hospital.address}
             </p>
 
             <p>
-              <strong>Phone:</strong> {hospital.phone}
+              <strong>Phone:</strong>{" "}
+              {hospital.phone}
             </p>
 
             <p>
-              <strong>Rating:</strong> ⭐ {hospital.rating}
+              <strong>Rating:</strong> ⭐{" "}
+              {hospital.rating}
             </p>
 
             <p>
-              <strong>Specialty:</strong> {hospital.specialty}
+              <strong>Specialty:</strong>{" "}
+              {hospital.specialty}
             </p>
 
             <button
               className="view-hospital-button"
-              onClick={() => navigate(`/doctors?hospital_id=${hospital.id}`)}
+              onClick={() =>
+                navigate(
+                  `/doctors?hospital_id=${hospital.id}`
+                )
+              }
             >
               View Hospital
             </button>

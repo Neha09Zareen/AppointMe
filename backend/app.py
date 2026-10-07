@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from datetime import datetime
 
 from database import (
     create_tables,
@@ -109,7 +110,6 @@ def doctor_register():
         connection = get_connection()
         cursor = connection.cursor()
 
-        # Check doctor account email
         cursor.execute(
             "SELECT id FROM doctor_accounts WHERE login_id = ?",
             (email,)
@@ -124,7 +124,6 @@ def doctor_register():
                 "message": "Doctor account already exists"
             }), 400
 
-        # Check whether email is already used by a patient
         cursor.execute(
             "SELECT id FROM users WHERE email = ?",
             (email,)
@@ -139,7 +138,6 @@ def doctor_register():
                 "message": "This email is already registered as a patient account"
             }), 400
 
-        # Create doctor profile
         cursor.execute("""
             INSERT INTO doctors
             (name, specialization, experience, degrees, hospital_id)
@@ -154,7 +152,6 @@ def doctor_register():
 
         doctor_id = cursor.lastrowid
 
-        # Create doctor login account as Pending
         cursor.execute("""
             INSERT INTO doctor_accounts
             (doctor_id, login_id, password, status)
@@ -197,13 +194,11 @@ def doctor_login():
             "message": "Invalid doctor login ID"
         }), 401
 
-    # doctor[3] = password
     if doctor[3] != data["password"]:
         return jsonify({
             "message": "Incorrect password"
         }), 401
 
-    # doctor[4] = account status
     if doctor[4] != "Approved":
         return jsonify({
             "message": "Your doctor account is still waiting for admin approval."
@@ -478,14 +473,132 @@ def get_doctor(doctor_id):
 def book_appointment():
     data = request.get_json()
 
-    patient_id = data["patient_id"]
-    doctor_id = data["doctor_id"]
-    appointment_date = data["appointment_date"]
-    appointment_time = data["appointment_time"]
+    patient_id = data.get("patient_id")
+    doctor_id = data.get("doctor_id")
+    appointment_date = data.get("appointment_date")
+    appointment_time = data.get("appointment_time")
+
+    # Validate required fields
+    if not patient_id or not doctor_id or not appointment_date or not appointment_time:
+        return jsonify({
+            "message": "Patient, doctor, date and time are required."
+        }), 400
+
+    # Allowed appointment slots
+    allowed_time_slots = {
+        "09:00",
+        "10:00",
+        "11:00",
+        "14:00",
+        "15:00",
+        "16:00",
+        "17:00",
+        "18:00",
+        "19:00",
+        "20:00"
+    }
+
+    if appointment_time not in allowed_time_slots:
+        return jsonify({
+            "message": "Invalid appointment time slot."
+        }), 400
+
+    # Validate appointment date format
+    try:
+        selected_date = datetime.strptime(
+            appointment_date,
+            "%Y-%m-%d"
+        ).date()
+    except ValueError:
+        return jsonify({
+            "message": "Invalid appointment date format."
+        }), 400
+
+    # Get current date and time
+    current_datetime = datetime.now()
+
+    today = current_datetime.date()
+
+    # Reject past dates
+    if selected_date < today:
+        return jsonify({
+            "message": "Cannot book an appointment for a past date."
+        }), 400
+
+    # If appointment is today, reject already-passed times
+    if selected_date == today:
+
+        selected_datetime = datetime.strptime(
+            f"{appointment_date} {appointment_time}",
+            "%Y-%m-%d %H:%M"
+        )
+
+        if selected_datetime <= current_datetime:
+            return jsonify({
+                "message": "This appointment time has already passed."
+            }), 400
 
     connection = get_connection()
     cursor = connection.cursor()
 
+    # Check whether patient exists
+    cursor.execute(
+        "SELECT id FROM users WHERE id = ?",
+        (patient_id,)
+    )
+
+    patient = cursor.fetchone()
+
+    if patient is None:
+        connection.close()
+
+        return jsonify({
+            "message": "Patient not found."
+        }), 404
+
+    # Check whether doctor exists and is approved
+    cursor.execute("""
+        SELECT doctors.id
+        FROM doctors
+        JOIN doctor_accounts
+        ON doctors.id = doctor_accounts.doctor_id
+        WHERE doctors.id = ?
+        AND doctor_accounts.status = 'Approved'
+    """, (doctor_id,))
+
+    doctor = cursor.fetchone()
+
+    if doctor is None:
+        connection.close()
+
+        return jsonify({
+            "message": "Doctor not found or not approved."
+        }), 404
+
+    # Prevent double-booking the same doctor
+    cursor.execute("""
+        SELECT id
+        FROM appointments
+        WHERE doctor_id = ?
+        AND appointment_date = ?
+        AND appointment_time = ?
+        AND status != 'Cancelled'
+    """, (
+        doctor_id,
+        appointment_date,
+        appointment_time
+    ))
+
+    existing_appointment = cursor.fetchone()
+
+    if existing_appointment:
+        connection.close()
+
+        return jsonify({
+            "message": "This time slot is already booked for this doctor."
+        }), 409
+
+    # Create appointment
     cursor.execute("""
         INSERT INTO appointments
         (patient_id, doctor_id, appointment_date, appointment_time, status)
@@ -545,12 +658,123 @@ def cancel_appointment(appointment_id):
 def reschedule_appointment(appointment_id):
     data = request.get_json()
 
-    appointment_date = data["appointment_date"]
-    appointment_time = data["appointment_time"]
+    appointment_date = data.get("appointment_date")
+    appointment_time = data.get("appointment_time")
+
+    # Validate required fields
+    if not appointment_date or not appointment_time:
+        return jsonify({
+            "message": "Appointment date and time are required."
+        }), 400
+
+    # Allowed appointment slots
+    allowed_time_slots = {
+        "09:00",
+        "10:00",
+        "11:00",
+        "14:00",
+        "15:00",
+        "16:00",
+        "17:00",
+        "18:00",
+        "19:00",
+        "20:00"
+    }
+
+    if appointment_time not in allowed_time_slots:
+        return jsonify({
+            "message": "Invalid appointment time slot."
+        }), 400
+
+    # Validate appointment date format
+    try:
+        selected_date = datetime.strptime(
+            appointment_date,
+            "%Y-%m-%d"
+        ).date()
+    except ValueError:
+        return jsonify({
+            "message": "Invalid appointment date format."
+        }), 400
+
+    current_datetime = datetime.now()
+    today = current_datetime.date()
+
+    # Reject past dates
+    if selected_date < today:
+        return jsonify({
+            "message": "Cannot reschedule to a past date."
+        }), 400
+
+    # Reject already-passed time if rescheduling for today
+    if selected_date == today:
+
+        selected_datetime = datetime.strptime(
+            f"{appointment_date} {appointment_time}",
+            "%Y-%m-%d %H:%M"
+        )
+
+        if selected_datetime <= current_datetime:
+            return jsonify({
+                "message": "This appointment time has already passed."
+            }), 400
 
     connection = get_connection()
     cursor = connection.cursor()
 
+    # Get the existing appointment
+    cursor.execute("""
+        SELECT doctor_id, status
+        FROM appointments
+        WHERE id = ?
+    """, (appointment_id,))
+
+    appointment = cursor.fetchone()
+
+    if appointment is None:
+        connection.close()
+
+        return jsonify({
+            "message": "Appointment not found."
+        }), 404
+
+    doctor_id = appointment[0]
+    current_status = appointment[1]
+
+    # Do not reschedule a cancelled appointment
+    if current_status == "Cancelled":
+        connection.close()
+
+        return jsonify({
+            "message": "Cancelled appointments cannot be rescheduled."
+        }), 400
+
+    # Prevent double-booking the doctor
+    cursor.execute("""
+        SELECT id
+        FROM appointments
+        WHERE doctor_id = ?
+        AND appointment_date = ?
+        AND appointment_time = ?
+        AND id != ?
+        AND status != 'Cancelled'
+    """, (
+        doctor_id,
+        appointment_date,
+        appointment_time,
+        appointment_id
+    ))
+
+    existing_appointment = cursor.fetchone()
+
+    if existing_appointment:
+        connection.close()
+
+        return jsonify({
+            "message": "This time slot is already booked for this doctor."
+        }), 409
+
+    # Update appointment
     cursor.execute("""
         UPDATE appointments
         SET appointment_date = ?,
@@ -565,14 +789,6 @@ def reschedule_appointment(appointment_id):
     ))
 
     connection.commit()
-
-    if cursor.rowcount == 0:
-        connection.close()
-
-        return jsonify({
-            "message": "Appointment not found"
-        }), 404
-
     connection.close()
 
     return jsonify({
@@ -683,8 +899,8 @@ def get_all_admin_appointments():
         ON appointments.patient_id = users.id
         JOIN doctors
         ON appointments.doctor_id = doctors.id
-        ORDER BY appointments.appointment_date,
-                 appointments.appointment_time
+        WHERE appointments.status != 'Cancelled'
+        ORDER BY appointments.id ASC
     """)
 
     appointments = cursor.fetchall()
@@ -693,6 +909,7 @@ def get_all_admin_appointments():
 
     return jsonify([
         {
+            "serial_number": index + 1,
             "id": appointment[0],
             "patient_id": appointment[1],
             "patient_name": appointment[2],
@@ -702,7 +919,7 @@ def get_all_admin_appointments():
             "appointment_time": appointment[6],
             "status": appointment[7]
         }
-        for appointment in appointments
+        for index, appointment in enumerate(appointments)
     ])
 
 

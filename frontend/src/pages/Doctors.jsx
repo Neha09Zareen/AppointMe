@@ -1,115 +1,156 @@
 import "./Doctors.css";
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import DoctorSearch from "../components/DoctorSearch";
 import DoctorFilter from "../components/DoctorFilter";
 
 function Doctors() {
-const navigate = useNavigate();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const hospitalId = searchParams.get("hospital_id");
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSpecialization, setSelectedSpecialization] = useState("All");
+  const [selectedSpecialization, setSelectedSpecialization] =
+    useState("All");
 
   const [doctors, setDoctors] = useState([]);
 
   useEffect(() => {
-  const fetchData = async () => {
-    try {
-      const doctorsResponse = await fetch("http://127.0.0.1:5000/doctors");
-      const hospitalsResponse = await fetch("http://127.0.0.1:5000/hospitals");
+    const fetchData = async () => {
+      try {
+        const doctorsResponse = await fetch(
+          "http://127.0.0.1:5000/doctors"
+        );
 
-      const doctorsData = await doctorsResponse.json();
-      const hospitalsData = await hospitalsResponse.json();
+        const hospitalsResponse = await fetch(
+          "http://127.0.0.1:5000/hospitals"
+        );
 
-      const hospitalMap = {};
+        const doctorsData = await doctorsResponse.json();
+        const hospitalsData = await hospitalsResponse.json();
 
-      hospitalsData.forEach((hospital) => {
-        hospitalMap[hospital.id] = hospital.name;
-      });
+        const hospitalMap = {};
 
-      const doctorsWithHospitalNames = doctorsData.map((doctor) => ({
-        ...doctor,
-        hospital: hospitalMap[doctor.hospital_id] || "Unknown Hospital",
-      }));
+        hospitalsData.forEach((hospital) => {
+          hospitalMap[hospital.id] = hospital.name;
+        });
 
-      setDoctors(doctorsWithHospitalNames);
-      
-    } catch (error) {
-      console.error("Error fetching doctors and hospitals:", error);
-    }
-  };
+        const doctorsWithHospitalNames = doctorsData.map(
+          (doctor) => ({
+            ...doctor,
+            hospital:
+              hospitalMap[doctor.hospital_id] ||
+              "Unknown Hospital",
+          })
+        );
 
-  fetchData();
+        setDoctors(doctorsWithHospitalNames);
+      } catch (error) {
+        console.error(
+          "Error fetching doctors and hospitals:",
+          error
+        );
+      }
+    };
+
+    fetchData();
   }, []);
 
-const filteredDoctors = doctors.filter((doctor) => {
-  const search = searchTerm.toLowerCase();
+  const filteredDoctors = doctors.filter((doctor) => {
+    const search = searchTerm.toLowerCase().trim();
 
-  const matchesSearch =
-    doctor.name.toLowerCase().includes(search) ||
-    doctor.specialization.toLowerCase().includes(search) ||
-    doctor.hospital.toLowerCase().includes(search);
+    const matchesSearch =
+      doctor.name.toLowerCase().includes(search) ||
+      doctor.specialization.toLowerCase().includes(search) ||
+      doctor.hospital.toLowerCase().includes(search);
 
-  const matchesSpecialization =
-    selectedSpecialization === "All" ||
-    doctor.specialization === selectedSpecialization;
+    const matchesSpecialization =
+      selectedSpecialization === "All" ||
+      doctor.specialization.toLowerCase() ===
+        selectedSpecialization.toLowerCase();
 
-  return matchesSearch && matchesSpecialization;
-});
+    const matchesHospital =
+      !hospitalId ||
+      String(doctor.hospital_id) === String(hospitalId);
 
-return (
-  <div className="doctors-page">
-    <div className="doctors-header">
-      <h1>Our Doctors</h1>
-      <p>Find the right doctor for your healthcare needs.</p>
+    return (
+      matchesSearch &&
+      matchesSpecialization &&
+      matchesHospital
+    );
+  });
+
+  return (
+    <div className="doctors-page">
+      <div className="doctors-header">
+        <h1>Our Doctors</h1>
+
+        <p>
+          Find the right doctor for your healthcare needs.
+        </p>
+      </div>
+
+      <DoctorSearch
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+      />
+
+      <DoctorFilter
+        selectedSpecialization={selectedSpecialization}
+        onSpecializationChange={setSelectedSpecialization}
+      />
+
+      <div className="doctor-grid">
+        {filteredDoctors.length === 0 ? (
+          <p>No doctors found.</p>
+        ) : (
+          filteredDoctors.map((doctor) => (
+            <div
+              className="doctor-card"
+              key={doctor.id}
+            >
+              <div className="doctor-icon">
+                👨‍⚕️
+              </div>
+
+              <h2>{doctor.name}</h2>
+
+              <p className="doctor-specialization">
+                {doctor.specialization}
+              </p>
+
+              <div className="doctor-info">
+                <p>
+                  <strong>Experience:</strong>{" "}
+                  {doctor.experience} years
+                </p>
+
+                <p>
+                  <strong>Degrees:</strong>{" "}
+                  {doctor.degrees}
+                </p>
+
+                <p>
+                  <strong>Hospital:</strong>{" "}
+                  {doctor.hospital}
+                </p>
+              </div>
+
+              <button
+                className="details-button"
+                onClick={() =>
+                  navigate("/doctor/" + doctor.id)
+                }
+              >
+                View Details
+              </button>
+            </div>
+          ))
+        )}
+      </div>
     </div>
-
-    <DoctorSearch
-      searchTerm={searchTerm}
-      onSearchChange={setSearchTerm}
-    />
-
-    <DoctorFilter
-      selectedSpecialization={selectedSpecialization}
-      onSpecializationChange={setSelectedSpecialization}
-    />
-
-    <div className="doctor-grid">
-      {filteredDoctors.map((doctor) => (
-        <div className="doctor-card" key={doctor.id}>
-          <div className="doctor-icon">👨‍⚕️</div>
-
-          <h2>{doctor.name}</h2>
-
-          <p className="doctor-specialization">
-            {doctor.specialization}
-          </p>
-
-          <div className="doctor-info">
-            <p>
-              <strong>Experience:</strong> {doctor.experience} years
-            </p>
-
-            <p>
-              <strong>Degrees:</strong> {doctor.degrees}
-            </p>
-
-            <p>
-              <strong>Hospital:</strong> {doctor.hospital}
-            </p>
-          </div>
-
-          <button
-            className="details-button"
-            onClick={() => navigate(`/doctor/${doctor.id}`)}
-          >
-            View Details
-          </button>
-        </div>
-      ))}
-    </div>
-  </div>
-);
+  );
 }
 
 export default Doctors;

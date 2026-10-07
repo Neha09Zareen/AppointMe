@@ -4,97 +4,44 @@ function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [pendingDoctors, setPendingDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
-
-  const [loading, setLoading] = useState(true);
-  const [doctorLoading, setDoctorLoading] = useState(true);
-  const [appointmentLoading, setAppointmentLoading] = useState(true);
-
   const [message, setMessage] = useState("");
 
-  const fetchStats = () => {
-    fetch("http://127.0.0.1:5000/admin-stats")
-      .then((response) => response.json())
-      .then((data) => {
-        setStats(data);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error("Error fetching admin statistics:", error);
-        setLoading(false);
-      });
-  };
-
-  const fetchPendingDoctors = () => {
-    fetch("http://127.0.0.1:5000/admin/pending-doctors")
-      .then((response) => response.json())
-      .then((data) => {
-        setPendingDoctors(data);
-        setDoctorLoading(false);
-      })
-      .catch((error) => {
-        console.error("Error fetching pending doctors:", error);
-        setDoctorLoading(false);
-      });
-  };
-
-  const fetchAppointments = () => {
-    fetch("http://127.0.0.1:5000/admin/appointments")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Could not fetch appointments");
-        }
-
-        return response.json();
-      })
-      .then((data) => {
-        setAppointments(data);
-        setAppointmentLoading(false);
-      })
-      .catch((error) => {
-        console.error("Error fetching appointments:", error);
-        setAppointmentLoading(false);
-      });
-  };
-
-  useEffect(() => {
-    fetchStats();
-    fetchPendingDoctors();
-    fetchAppointments();
-  }, []);
-
-  const handleApprove = async (doctorId) => {
-    setMessage("");
-
+  const fetchData = async () => {
     try {
-      const response = await fetch(
-        `http://127.0.0.1:5000/admin/doctors/${doctorId}/approve`,
-        {
-          method: "PUT",
-        }
+      const statsResponse = await fetch(
+        "http://127.0.0.1:5000/admin-stats"
       );
 
-      const data = await response.json();
+      const statsData = await statsResponse.json();
+      setStats(statsData);
 
-      if (response.ok) {
-        setMessage("Doctor approved successfully.");
+      const doctorsResponse = await fetch(
+        "http://127.0.0.1:5000/admin/pending-doctors"
+      );
 
-        fetchPendingDoctors();
-        fetchStats();
-      } else {
-        setMessage(data.message || "Could not approve doctor.");
-      }
+      const doctorsData = await doctorsResponse.json();
+      setPendingDoctors(doctorsData);
+
+      const appointmentsResponse = await fetch(
+        "http://127.0.0.1:5000/admin/appointments"
+      );
+
+      const appointmentsData = await appointmentsResponse.json();
+      setAppointments(appointmentsData);
     } catch (error) {
-      console.error("Error approving doctor:", error);
-      setMessage("Could not connect to backend.");
+      console.error("Admin dashboard error:", error);
+      setMessage("Could not load admin dashboard data.");
     }
   };
 
-  const handleReject = async (doctorId) => {
-    setMessage("");
+  useEffect(() => {
+    fetchData();
+  }, []);
 
+  const handleDoctorAction = async (doctorId, action) => {
     try {
       const response = await fetch(
-        `http://127.0.0.1:5000/admin/doctors/${doctorId}/reject`,
+        `http://127.0.0.1:5000/admin/doctors/${doctorId}/${action}`,
         {
           method: "PUT",
         }
@@ -103,14 +50,13 @@ function AdminDashboard() {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage("Doctor rejected successfully.");
-
-        fetchPendingDoctors();
+        setMessage(data.message);
+        fetchData();
       } else {
-        setMessage(data.message || "Could not reject doctor.");
+        setMessage(data.message || "Action failed.");
       }
     } catch (error) {
-      console.error("Error rejecting doctor:", error);
+      console.error("Doctor action error:", error);
       setMessage("Could not connect to backend.");
     }
   };
@@ -119,75 +65,73 @@ function AdminDashboard() {
     <div style={{ padding: "30px" }}>
       <h1>Admin Dashboard</h1>
 
+      {message && <p>{message}</p>}
+
       {/* SYSTEM OVERVIEW */}
+      <section>
+        <h2>System Overview</h2>
 
-      <div
-        style={{
-          background: "#fff",
-          padding: "20px",
-          marginTop: "20px",
-          borderRadius: "10px",
-          boxShadow: "0 0 10px rgba(0,0,0,0.1)",
-        }}
-      >
-        <h3>System Overview</h3>
-
-        {loading ? (
-          <p>Loading statistics...</p>
-        ) : stats ? (
-          <>
-            <p>Total Doctors: {stats.total_doctors}</p>
-
-            <p>Total Patients: {stats.total_patients}</p>
-
+        {stats ? (
+          <div>
             <p>
-              Appointments Today: {stats.appointments_today}
+              <strong>Total Patients:</strong>{" "}
+              {stats.total_patients}
             </p>
 
             <p>
-              Pending Feedback: {stats.pending_feedback}
+              <strong>Total Doctors:</strong>{" "}
+              {stats.total_doctors}
             </p>
-          </>
+
+            <p>
+              <strong>Total Appointments:</strong>{" "}
+              {stats.total_appointments}
+            </p>
+
+            <p>
+              <strong>Total Feedback:</strong>{" "}
+              {stats.total_feedback}
+            </p>
+          </div>
         ) : (
-          <p>Unable to load statistics.</p>
+          <p>Loading statistics...</p>
         )}
-      </div>
+      </section>
 
-      {/* PENDING DOCTOR APPROVALS */}
+      <hr />
 
-      <div
-        style={{
-          background: "#fff",
-          padding: "20px",
-          marginTop: "30px",
-          borderRadius: "10px",
-          boxShadow: "0 0 10px rgba(0,0,0,0.1)",
-        }}
-      >
-        <h3>Pending Doctor Approvals</h3>
+      {/* PENDING DOCTORS */}
+      <section>
+        <h2>Pending Doctor Approvals</h2>
 
-        {message && <p>{message}</p>}
-
-        {doctorLoading ? (
-          <p>Loading pending doctors...</p>
-        ) : pendingDoctors.length === 0 ? (
+        {pendingDoctors.length === 0 ? (
           <p>No pending doctor registrations.</p>
         ) : (
           <div>
             {pendingDoctors.map((doctor) => (
               <div
-                key={doctor.doctor_id}
+                key={doctor.id}
                 style={{
                   border: "1px solid #ccc",
-                  borderRadius: "8px",
-                  padding: "15px",
+                  borderRadius: "10px",
+                  padding: "20px",
                   marginBottom: "15px",
                 }}
               >
-                <h4>{doctor.name}</h4>
+                <p>
+                  <strong>Doctor ID:</strong> {doctor.id}
+                </p>
+
+                <p>
+                  <strong>Name:</strong> {doctor.name}
+                </p>
 
                 <p>
                   <strong>Email:</strong> {doctor.email}
+                </p>
+
+                <p>
+                  <strong>Phone:</strong> {doctor.phone}
                 </p>
 
                 <p>
@@ -197,16 +141,11 @@ function AdminDashboard() {
 
                 <p>
                   <strong>Experience:</strong>{" "}
-                  {doctor.experience} years
+                  {doctor.experience}
                 </p>
 
                 <p>
                   <strong>Degrees:</strong> {doctor.degrees}
-                </p>
-
-                <p>
-                  <strong>Hospital ID:</strong>{" "}
-                  {doctor.hospital_id}
                 </p>
 
                 <p>
@@ -215,18 +154,17 @@ function AdminDashboard() {
 
                 <button
                   onClick={() =>
-                    handleApprove(doctor.doctor_id)
+                    handleDoctorAction(doctor.id, "approve")
                   }
-                  style={{
-                    marginRight: "10px",
-                  }}
                 >
                   Approve
                 </button>
 
+                {" "}
+
                 <button
                   onClick={() =>
-                    handleReject(doctor.doctor_id)
+                    handleDoctorAction(doctor.id, "reject")
                   }
                 >
                   Reject
@@ -235,37 +173,32 @@ function AdminDashboard() {
             ))}
           </div>
         )}
-      </div>
+      </section>
+
+      <hr />
 
       {/* ALL APPOINTMENTS */}
+      <section>
+        <h2>All Appointments</h2>
 
-      <div
-        style={{
-          background: "#fff",
-          padding: "20px",
-          marginTop: "30px",
-          borderRadius: "10px",
-          boxShadow: "0 0 10px rgba(0,0,0,0.1)",
-        }}
-      >
-        <h3>All Appointments</h3>
-
-        {appointmentLoading ? (
-          <p>Loading appointments...</p>
-        ) : appointments.length === 0 ? (
+        {appointments.length === 0 ? (
           <p>No appointments found.</p>
         ) : (
           <div>
-            {appointments.map((appointment) => (
+            {appointments.map((appointment, index) => (
               <div
                 key={appointment.id}
                 style={{
                   border: "1px solid #ccc",
-                  borderRadius: "8px",
-                  padding: "15px",
+                  borderRadius: "10px",
+                  padding: "20px",
                   marginBottom: "15px",
                 }}
               >
+                <p>
+                  <strong>Serial No:</strong> {index + 1}
+                </p>
+
                 <p>
                   <strong>Appointment ID:</strong>{" "}
                   {appointment.id}
@@ -309,7 +242,7 @@ function AdminDashboard() {
             ))}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
