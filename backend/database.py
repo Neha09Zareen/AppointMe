@@ -80,7 +80,7 @@ def create_tables():
     )
     """)
 
-    # APPOINTMENTS TABLE
+        # APPOINTMENTS TABLE
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS appointments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,10 +89,26 @@ def create_tables():
         appointment_date TEXT NOT NULL,
         appointment_time TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'Booked',
+        symptoms TEXT,
+        symptom_summary TEXT,
         FOREIGN KEY (patient_id) REFERENCES users(id),
         FOREIGN KEY (doctor_id) REFERENCES doctors(id)
     )
     """)
+
+    # Add missing columns to existing databases
+    cursor.execute("PRAGMA table_info(appointments)")
+    columns = [row[1] for row in cursor.fetchall()]
+
+    if "symptoms" not in columns:
+        cursor.execute(
+            "ALTER TABLE appointments ADD COLUMN symptoms TEXT"
+        )
+
+    if "symptom_summary" not in columns:
+        cursor.execute(
+            "ALTER TABLE appointments ADD COLUMN symptom_summary TEXT"
+        )
 
     # FEEDBACK TABLE
     cursor.execute("""

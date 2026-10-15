@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 
 function DoctorDashboard() {
@@ -38,9 +39,7 @@ function DoctorDashboard() {
     <div style={{ padding: "30px" }}>
       <h1>Doctor Dashboard</h1>
 
-      {doctorName && (
-        <h2>Welcome, Dr. {doctorName}</h2>
-      )}
+      {doctorName && <h2>Welcome, Dr. {doctorName}</h2>}
 
       {message && <p>{message}</p>}
 
@@ -63,7 +62,7 @@ function DoctorDashboard() {
             {appointments.map((appointment) => (
               <li
                 key={appointment.id}
-                style={{ marginBottom: "15px" }}
+                style={{ marginBottom: "20px" }}
               >
                 <strong>
                   Appointment ID: {appointment.id}
@@ -88,6 +87,16 @@ function DoctorDashboard() {
                 <br />
 
                 Status: {appointment.status}
+
+                <br />
+                <br />
+
+                <strong>Gemini AI Symptom Summary:</strong>
+
+                <p style={{ whiteSpace: "pre-line" }}>
+                  {appointment.symptom_summary ||
+                    "No AI summary available"}
+                </p>
               </li>
             ))}
           </ul>

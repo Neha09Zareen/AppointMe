@@ -1,3 +1,4 @@
+import './App.css';
 import AppointmentHistory from "./pages/AppointmentHistory";
 import AppointmentBooking from "./pages/AppointmentBooking";
 import AdminDashboard from "./pages/AdminDashboard";

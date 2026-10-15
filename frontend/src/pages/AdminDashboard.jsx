@@ -1,250 +1,305 @@
-import { useEffect, useState } from "react";
 
-function AdminDashboard() {
-  const [stats, setStats] = useState(null);
-  const [pendingDoctors, setPendingDoctors] = useState([]);
+import { useCallback, useEffect, useState } from "react";
+import "./AdminDashboard.css";
+
+const API = "http://127.0.0.1:5000";
+
+function getList(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.value)) return data.value;
+  if (Array.isArray(data?.doctors)) return data.doctors;
+  if (Array.isArray(data?.appointments)) return data.appointments;
+  return [];
+}
+
+export default function AdminDashboard() {
+  const [stats, setStats] = useState({
+    total_patients: 0,
+    total_doctors: 0,
+    appointments_today: 0,
+    pending_feedback: 0,
+  });
+
+  const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
-  const fetchData = async () => {
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
+    setError("");
+
     try {
-      const statsResponse = await fetch(
-        "http://127.0.0.1:5000/admin-stats"
+      const responses = await Promise.all([
+        fetch(`${API}/admin-stats`),
+        fetch(`${API}/admin/pending-doctors`),
+        fetch(`${API}/admin/appointments`),
+      ]);
+
+      const failedResponse = responses.find((response) => !response.ok);
+
+      if (failedResponse) {
+        throw new Error(
+          `Request failed with status ${failedResponse.status}.`
+        );
+      }
+
+      const [statsData, doctorsData, appointmentsData] = await Promise.all(
+        responses.map((response) => response.json())
       );
 
-      const statsData = await statsResponse.json();
-      setStats(statsData);
-
-      const doctorsResponse = await fetch(
-        "http://127.0.0.1:5000/admin/pending-doctors"
+      setStats((previous) => ({ ...previous, ...statsData }));
+      setDoctors(getList(doctorsData));
+      setAppointments(getList(appointmentsData));
+    } catch (err) {
+      console.error("Admin dashboard error:", err);
+      setError(
+        "Could not load dashboard data. Check that the Flask backend is running and the admin API routes exist."
       );
-
-      const doctorsData = await doctorsResponse.json();
-      setPendingDoctors(doctorsData);
-
-      const appointmentsResponse = await fetch(
-        "http://127.0.0.1:5000/admin/appointments"
-      );
-
-      const appointmentsData = await appointmentsResponse.json();
-      setAppointments(appointmentsData);
-    } catch (error) {
-      console.error("Admin dashboard error:", error);
-      setMessage("Could not load admin dashboard data.");
+    } finally {
+      setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchData();
   }, []);
 
-  const handleDoctorAction = async (doctorId, action) => {
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  async function updateDoctorStatus(doctorId, action) {
+    if (!doctorId) {
+      setError("Doctor ID is missing. Cannot update this application.");
+      return;
+    }
+
+    setMessage("");
+    setError("");
+
     try {
       const response = await fetch(
-        `http://127.0.0.1:5000/admin/doctors/${doctorId}/${action}`,
-        {
-          method: "PUT",
-        }
+        `${API}/admin/doctors/${doctorId}/${action}`,
+        { method: "PUT" }
       );
 
-      const data = await response.json();
+      const result = await response.json().catch(() => ({}));
 
-      if (response.ok) {
-        setMessage(data.message);
-        fetchData();
-      } else {
-        setMessage(data.message || "Action failed.");
+      if (!response.ok) {
+        throw new Error(result.message || `Failed to ${action} doctor.`);
       }
-    } catch (error) {
-      console.error("Doctor action error:", error);
-      setMessage("Could not connect to backend.");
+
+      setMessage(
+        result.message ||
+          `Doctor ${action === "approve" ? "approved" : "rejected"} successfully.`
+      );
+
+      await loadDashboard();
+    } catch (err) {
+      setError(err.message || "Could not update doctor status.");
     }
-  };
+  }
 
   return (
-    <div style={{ padding: "30px" }}>
-      <h1>Admin Dashboard</h1>
+    <div className="admin-dashboard">
+      <aside className="admin-sidebar">
+        <h2>AppointMe</h2>
+        <p>Admin Panel</p>
 
-      {message && <p>{message}</p>}
+        
+<nav>
+  <button
+    type="button"
+    onClick={() => {
+      document.getElementById("overview")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }}
+  >
+    Overview
+  </button>
 
-      {/* SYSTEM OVERVIEW */}
-      <section>
-        <h2>System Overview</h2>
+  <button
+    type="button"
+    onClick={() => {
+      document.getElementById("doctor-applications")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }}
+  >
+    Doctor Approvals
+  </button>
 
-        {stats ? (
-          <div>
-            <p>
-              <strong>Total Patients:</strong>{" "}
-              {stats.total_patients}
-            </p>
+  <button
+    type="button"
+    onClick={() => {
+      document.getElementById("appointments-section")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }}
+  >
+    Appointments
+  </button>
+</nav>
 
-            <p>
-              <strong>Total Doctors:</strong>{" "}
-              {stats.total_doctors}
-            </p>
+        <button
+          type="button"
+          onClick={loadDashboard}
+          disabled={loading}
+        >
+          {loading ? "Loading..." : "Refresh Data"}
+        </button>
+      </aside>
 
-            <p>
-              <strong>Total Appointments:</strong>{" "}
-              {stats.total_appointments}
-            </p>
+      <main className="admin-main">
+        <header id="overview">
+          <h1>Admin Dashboard</h1>
+        </header>
 
-            <p>
-              <strong>Total Feedback:</strong>{" "}
-              {stats.total_feedback}
-            </p>
-          </div>
-        ) : (
-          <p>Loading statistics...</p>
-        )}
-      </section>
+        {message && <p role="status">{message}</p>}
+        {error && <p role="alert">{error}</p>}
 
-      <hr />
+        <section className="admin-stats">
+          <article>
+            <h3>Total Patients</h3>
+            <p>{stats.total_patients ?? 0}</p>
+          </article>
 
-      {/* PENDING DOCTORS */}
-      <section>
-        <h2>Pending Doctor Approvals</h2>
+          <article>
+            <h3>Total Doctors</h3>
+            <p>{stats.total_doctors ?? 0}</p>
+          </article>
 
-        {pendingDoctors.length === 0 ? (
-          <p>No pending doctor registrations.</p>
-        ) : (
-          <div>
-            {pendingDoctors.map((doctor) => (
-              <div
-                key={doctor.id}
-                style={{
-                  border: "1px solid #ccc",
-                  borderRadius: "10px",
-                  padding: "20px",
-                  marginBottom: "15px",
-                }}
-              >
-                <p>
-                  <strong>Doctor ID:</strong> {doctor.id}
-                </p>
+          <article>
+            <h3>Appointments Today</h3>
+            <p>{stats.appointments_today ?? 0}</p>
+          </article>
 
-                <p>
-                  <strong>Name:</strong> {doctor.name}
-                </p>
+          <article>
+            <h3>Pending Feedback</h3>
+            <p>{stats.pending_feedback ?? 0}</p>
+          </article>
+        </section>
 
-                <p>
-                  <strong>Email:</strong> {doctor.email}
-                </p>
+        <section
+          id="doctor-applications"
+          className="admin-section"
+        >
+          <h2>Pending Doctor Applications</h2>
 
-                <p>
-                  <strong>Phone:</strong> {doctor.phone}
-                </p>
+          {loading ? (
+            <p>Loading doctor applications...</p>
+          ) : doctors.length === 0 ? (
+            <p>No pending doctor applications.</p>
+          ) : (
+            <div className="admin-table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Login ID</th>
+                    <th>Specialization</th>
+                    <th>Experience</th>
+                    <th>Degrees</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
 
-                <p>
-                  <strong>Specialization:</strong>{" "}
-                  {doctor.specialization}
-                </p>
+                <tbody>
+                  {doctors.map((doctor) => (
+                    <tr key={doctor.account_id ?? doctor.doctor_id}>
+                      <td>{doctor.name || "—"}</td>
+                      <td>{doctor.email || doctor.login_id || "—"}</td>
+                      <td>{doctor.specialization || "—"}</td>
+                      <td>{doctor.experience ?? "—"}</td>
+                      <td>{doctor.degrees || "—"}</td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateDoctorStatus(doctor.doctor_id, "approve")
+                          }
+                          disabled={!doctor.doctor_id}
+                        >
+                          Approve
+                        </button>
 
-                <p>
-                  <strong>Experience:</strong>{" "}
-                  {doctor.experience}
-                </p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateDoctorStatus(doctor.doctor_id, "reject")
+                          }
+                          disabled={!doctor.doctor_id}
+                        >
+                          Reject
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
 
-                <p>
-                  <strong>Degrees:</strong> {doctor.degrees}
-                </p>
+        <section
+          id="appointments-section"
+          className="admin-section"
+        >
+          <h2>Appointments</h2>
 
-                <p>
-                  <strong>Status:</strong> {doctor.status}
-                </p>
+          {loading ? (
+            <p>Loading appointments...</p>
+          ) : appointments.length === 0 ? (
+            <p>No appointments found.</p>
+          ) : (
+            <div className="admin-table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Appointment ID</th>
+                    <th>Patient</th>
+                    <th>Doctor</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
 
-                <button
-                  onClick={() =>
-                    handleDoctorAction(doctor.id, "approve")
-                  }
-                >
-                  Approve
-                </button>
-
-                {" "}
-
-                <button
-                  onClick={() =>
-                    handleDoctorAction(doctor.id, "reject")
-                  }
-                >
-                  Reject
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <hr />
-
-      {/* ALL APPOINTMENTS */}
-      <section>
-        <h2>All Appointments</h2>
-
-        {appointments.length === 0 ? (
-          <p>No appointments found.</p>
-        ) : (
-          <div>
-            {appointments.map((appointment, index) => (
-              <div
-                key={appointment.id}
-                style={{
-                  border: "1px solid #ccc",
-                  borderRadius: "10px",
-                  padding: "20px",
-                  marginBottom: "15px",
-                }}
-              >
-                <p>
-                  <strong>Serial No:</strong> {index + 1}
-                </p>
-
-                <p>
-                  <strong>Appointment ID:</strong>{" "}
-                  {appointment.id}
-                </p>
-
-                <p>
-                  <strong>Patient:</strong>{" "}
-                  {appointment.patient_name}
-                </p>
-
-                <p>
-                  <strong>Patient ID:</strong>{" "}
-                  {appointment.patient_id}
-                </p>
-
-                <p>
-                  <strong>Doctor:</strong>{" "}
-                  {appointment.doctor_name}
-                </p>
-
-                <p>
-                  <strong>Doctor ID:</strong>{" "}
-                  {appointment.doctor_id}
-                </p>
-
-                <p>
-                  <strong>Date:</strong>{" "}
-                  {appointment.appointment_date}
-                </p>
-
-                <p>
-                  <strong>Time:</strong>{" "}
-                  {appointment.appointment_time}
-                </p>
-
-                <p>
-                  <strong>Status:</strong>{" "}
-                  {appointment.status}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+                <tbody>
+                  {appointments.map((appointment, index) => (
+                    <tr key={appointment.id ?? index}>
+                      <td>{appointment.id ?? "—"}</td>
+                      <td>
+                        {appointment.patient_name ||
+                          appointment.patient ||
+                          "—"}
+                      </td>
+                      <td>
+                        {appointment.doctor_name ||
+                          appointment.doctor ||
+                          "—"}
+                      </td>
+                      <td>
+                        {appointment.date ||
+                          appointment.appointment_date ||
+                          "—"}
+                      </td>
+                      <td>
+                        {appointment.time ||
+                          appointment.appointment_time ||
+                          "—"}
+                      </td>
+                      <td>{appointment.status || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </main>
     </div>
   );
 }
-
-export default AdminDashboard;

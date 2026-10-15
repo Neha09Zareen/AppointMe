@@ -26,8 +26,18 @@ function DoctorRegister() {
         return response.json();
       })
       .then((data) => {
-        setHospitals(data);
-      })
+  const hospitalList = Array.isArray(data)
+    ? data
+    : Array.isArray(data.value)
+      ? data.value
+      : [];
+
+  setHospitals(hospitalList);
+
+  if (hospitalList.length === 0) {
+    setMessage("No hospitals were returned by the server.");
+  }
+})
       .catch((error) => {
         console.error("Error fetching hospitals:", error);
         setMessage("Could not load hospitals.");

@@ -1,3 +1,11 @@
+import os
+from dotenv import load_dotenv
+from google import genai
+
+load_dotenv()
+
+gemini_api_key = os.getenv("GEMINI_API_KEY")
+gemini_client = genai.Client(api_key=gemini_api_key) if gemini_api_key else None
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from datetime import datetime
@@ -469,154 +477,165 @@ def get_doctor(doctor_id):
 # BOOK APPOINTMENT
 # =========================
 
+
+def generate_symptom_summary(symptoms):
+    if not gemini_client:
+        raise RuntimeError("GEMINI_API_KEY is missing from backend .env")
+
+    response = gemini_client.models.generate_content(
+        model="gemini-3.5-flash-lite",
+        contents=f"""
+Create a concise symptom summary for a doctor.
+
+Rules:
+- Use short bullet points.
+- List each symptom separately.
+- Include duration only when explicitly mentioned.
+- Do not diagnose, prescribe, or invent details.
+- Do not add disclaimers or extra notes.
+
+Patient-reported symptoms:
+{symptoms}
+"""
+    )
+
+    summary = (response.text or "").strip()
+
+    if not summary:
+        raise RuntimeError("Gemini returned an empty summary.")
+
+    return summary
+
+@app.route("/symptom-summary", methods=["POST"])
+def preview_symptom_summary():
+    data = request.get_json() or {}
+    symptoms = (data.get("symptoms") or "").strip()
+
+    if not symptoms:
+        return jsonify({"message": "Please enter your symptoms."}), 400
+
+    try:
+        summary = generate_symptom_summary(symptoms)
+        return jsonify({"summary": summary})
+    except Exception as error:
+        print("Gemini summary error:", error)
+        return jsonify({
+            "message": "Could not generate the AI symptom summary. Please try again."
+        }), 502
+
 @app.route("/appointments", methods=["POST"])
+
 def book_appointment():
-    data = request.get_json()
+    data = request.get_json() or {}
 
     patient_id = data.get("patient_id")
     doctor_id = data.get("doctor_id")
     appointment_date = data.get("appointment_date")
     appointment_time = data.get("appointment_time")
+    symptoms = (data.get("symptoms") or "").strip()
+    symptom_summary = ""
 
-    # Validate required fields
-    if not patient_id or not doctor_id or not appointment_date or not appointment_time:
+    if not all([patient_id, doctor_id, appointment_date, appointment_time]):
         return jsonify({
             "message": "Patient, doctor, date and time are required."
         }), 400
 
-    # Allowed appointment slots
+    if not symptoms:
+        return jsonify({"message": "Please enter your symptoms."}), 400
+
+    try:
+        symptom_summary = generate_symptom_summary(symptoms)
+    except Exception as error:
+        print("Gemini summary error:", error)
+        return jsonify({
+            "message": "Could not generate the AI symptom summary. Please try again."
+        }), 502
+
     allowed_time_slots = {
-        "09:00",
-        "10:00",
-        "11:00",
-        "14:00",
-        "15:00",
-        "16:00",
-        "17:00",
-        "18:00",
-        "19:00",
-        "20:00"
+        "09:00", "10:00", "11:00", "14:00", "15:00",
+        "16:00", "17:00", "18:00", "19:00", "20:00"
     }
 
     if appointment_time not in allowed_time_slots:
-        return jsonify({
-            "message": "Invalid appointment time slot."
-        }), 400
+        return jsonify({"message": "Invalid appointment time slot."}), 400
 
-    # Validate appointment date format
     try:
-        selected_date = datetime.strptime(
-            appointment_date,
-            "%Y-%m-%d"
-        ).date()
-    except ValueError:
-        return jsonify({
-            "message": "Invalid appointment date format."
-        }), 400
+        selected_date = datetime.strptime(appointment_date, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return jsonify({"message": "Invalid appointment date format."}), 400
 
-    # Get current date and time
-    current_datetime = datetime.now()
+    now = datetime.now()
 
-    today = current_datetime.date()
+    if selected_date < now.date():
+        return jsonify({"message": "Cannot book an appointment for a past date."}), 400
 
-    # Reject past dates
-    if selected_date < today:
-        return jsonify({
-            "message": "Cannot book an appointment for a past date."
-        }), 400
-
-    # If appointment is today, reject already-passed times
-    if selected_date == today:
-
+    if selected_date == now.date():
         selected_datetime = datetime.strptime(
-            f"{appointment_date} {appointment_time}",
-            "%Y-%m-%d %H:%M"
+            f"{appointment_date} {appointment_time}", "%Y-%m-%d %H:%M"
         )
-
-        if selected_datetime <= current_datetime:
-            return jsonify({
-                "message": "This appointment time has already passed."
-            }), 400
+        if selected_datetime <= now:
+            return jsonify({"message": "This appointment time has already passed."}), 400
 
     connection = get_connection()
-    cursor = connection.cursor()
 
-    # Check whether patient exists
-    cursor.execute(
-        "SELECT id FROM users WHERE id = ?",
-        (patient_id,)
-    )
+    try:
+        cursor = connection.cursor()
 
-    patient = cursor.fetchone()
+        cursor.execute("SELECT id FROM users WHERE id = ?", (patient_id,))
+        if cursor.fetchone() is None:
+            return jsonify({"message": "Patient not found."}), 404
 
-    if patient is None:
+        cursor.execute("""
+            SELECT doctors.id
+            FROM doctors
+            JOIN doctor_accounts ON doctors.id = doctor_accounts.doctor_id
+            WHERE doctors.id = ? AND doctor_accounts.status = 'Approved'
+        """, (doctor_id,))
+
+        if cursor.fetchone() is None:
+            return jsonify({"message": "Doctor not found or not approved."}), 404
+
+        cursor.execute("""
+            SELECT id FROM appointments
+            WHERE doctor_id = ?
+            AND appointment_date = ?
+            AND appointment_time = ?
+            AND status != 'Cancelled'
+        """, (doctor_id, appointment_date, appointment_time))
+
+        if cursor.fetchone():
+            return jsonify({"message": "This time slot is already booked."}), 409
+
+        cursor.execute("PRAGMA table_info(appointments)")
+        columns = {row[1] for row in cursor.fetchall()}
+
+        if "symptoms" not in columns or "symptom_summary" not in columns:
+            return jsonify({
+                "message": "Database columns are missing. Update the appointments table first."
+            }), 500
+
+        cursor.execute("""
+            INSERT INTO appointments (
+                patient_id, doctor_id, appointment_date,
+                appointment_time, status, symptoms, symptom_summary
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            patient_id, doctor_id, appointment_date,
+            appointment_time, "Booked", symptoms, symptom_summary
+        ))
+
+        connection.commit()
+
+        return jsonify({"message": "Appointment booked successfully"}), 201
+
+    except Exception as error:
+        connection.rollback()
+        print("Booking error:", error)
+        return jsonify({"message": "Booking failed. Check the backend terminal."}), 500
+
+    finally:
         connection.close()
-
-        return jsonify({
-            "message": "Patient not found."
-        }), 404
-
-    # Check whether doctor exists and is approved
-    cursor.execute("""
-        SELECT doctors.id
-        FROM doctors
-        JOIN doctor_accounts
-        ON doctors.id = doctor_accounts.doctor_id
-        WHERE doctors.id = ?
-        AND doctor_accounts.status = 'Approved'
-    """, (doctor_id,))
-
-    doctor = cursor.fetchone()
-
-    if doctor is None:
-        connection.close()
-
-        return jsonify({
-            "message": "Doctor not found or not approved."
-        }), 404
-
-    # Prevent double-booking the same doctor
-    cursor.execute("""
-        SELECT id
-        FROM appointments
-        WHERE doctor_id = ?
-        AND appointment_date = ?
-        AND appointment_time = ?
-        AND status != 'Cancelled'
-    """, (
-        doctor_id,
-        appointment_date,
-        appointment_time
-    ))
-
-    existing_appointment = cursor.fetchone()
-
-    if existing_appointment:
-        connection.close()
-
-        return jsonify({
-            "message": "This time slot is already booked for this doctor."
-        }), 409
-
-    # Create appointment
-    cursor.execute("""
-        INSERT INTO appointments
-        (patient_id, doctor_id, appointment_date, appointment_time, status)
-        VALUES (?, ?, ?, ?, ?)
-    """, (
-        patient_id,
-        doctor_id,
-        appointment_date,
-        appointment_time,
-        "Booked"
-    ))
-
-    connection.commit()
-    connection.close()
-
-    return jsonify({
-        "message": "Appointment booked successfully"
-    })
 
 
 # =========================
@@ -844,12 +863,15 @@ def get_doctor_appointments(doctor_id):
     cursor = connection.cursor()
 
     cursor.execute("""
-        SELECT appointments.id,
-               appointments.patient_id,
-               users.name,
-               appointments.appointment_date,
-               appointments.appointment_time,
-               appointments.status
+    SELECT appointments.id,
+       appointments.patient_id,
+       users.name,
+       appointments.appointment_date,
+       appointments.appointment_time,
+       appointments.status,
+       appointments.symptoms,
+       appointments.symptom_summary
+
         FROM appointments
         JOIN users
         ON appointments.patient_id = users.id
@@ -862,6 +884,7 @@ def get_doctor_appointments(doctor_id):
 
     connection.close()
 
+    
     return jsonify([
         {
             "id": appointment[0],
@@ -869,7 +892,9 @@ def get_doctor_appointments(doctor_id):
             "patient_name": appointment[2],
             "appointment_date": appointment[3],
             "appointment_time": appointment[4],
-            "status": appointment[5]
+            "status": appointment[5],
+            "symptoms": appointment[6],
+            "symptom_summary": appointment[7]
         }
         for appointment in appointments
     ])

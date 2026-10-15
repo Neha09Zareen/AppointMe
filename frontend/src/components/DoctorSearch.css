@@ -1,19 +1,38 @@
+
+/* AppointMe — Doctor Search */
+
+
 .doctor-search {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 20px;
+  width: 100%;
+  max-width: 600px;
+  margin: 20px auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
 
 .doctor-search input {
+  display: block;
+  box-sizing: border-box;
   width: 100%;
-  max-width: 450px;
-  padding: 12px 16px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 15px;
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid #d9d6f5;
+  border-radius: 10px;
   outline: none;
+  background: #ffffff;
+  color: #292957;
+  font-size: 15px;
+  box-shadow: none;
+}
+
+.doctor-search input::placeholder {
+  color: #85839e;
+  opacity: 1;
 }
 
 .doctor-search input:focus {
-  border-color: #6b46c1;
+  border-color: #5145cd;
+  box-shadow: 0 0 0 3px rgba(81, 69, 205, 0.12);
 }

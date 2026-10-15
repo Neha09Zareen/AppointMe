@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# AppointMe local database files
+backend/*.db
+backend/*.db-journal
+
+# Local environment secrets
+backend/.env
