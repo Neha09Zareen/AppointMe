@@ -5,7 +5,7 @@ function DoctorSearch({ searchTerm, onSearchChange }) {
     <div className="doctor-search">
       <input
         type="text"
-        placeholder="Search by doctor, specialization, or hospital..."
+        placeholder="Search for doctors or specialization..."
         value={searchTerm}
         onChange={(event) => onSearchChange(event.target.value)}
       />

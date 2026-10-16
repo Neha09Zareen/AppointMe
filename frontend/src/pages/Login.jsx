@@ -10,7 +10,6 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     setMessage("");
 
     try {
@@ -28,11 +27,14 @@ function Login() {
       const data = await response.json();
 
       if (data.message === "Login Successful") {
-        setMessage("Login successful!");
+        localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("userRole", "patient");
 
-        setTimeout(() => {
-          navigate("/hospitals");
-        }, 500);
+        localStorage.setItem("userId", data.user_id);
+        localStorage.setItem("userName", data.name);
+        localStorage.setItem("userEmail", data.email);
+
+        navigate("/hospitals");
       } else {
         setMessage(data.message);
       }
@@ -44,9 +46,7 @@ function Login() {
 
   return (
     <div>
-      <h1>Hospital Appointment System</h1>
-
-      <h2>Login</h2>
+      <h2>Patient Login</h2>
 
       <form onSubmit={handleSubmit}>
         <label>Email</label>

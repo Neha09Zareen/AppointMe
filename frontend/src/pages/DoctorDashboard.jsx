@@ -1,25 +1,106 @@
+
+import { useEffect, useState } from "react";
+
 function DoctorDashboard() {
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+
+  const doctorId = localStorage.getItem("doctorId");
+  const doctorName = localStorage.getItem("userName");
+
+  useEffect(() => {
+    if (!doctorId) {
+      setMessage("Doctor information not found. Please login again.");
+      setLoading(false);
+      return;
+    }
+
+    fetch(`http://127.0.0.1:5000/doctor-appointments/${doctorId}`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Could not fetch appointments");
+        }
+
+        return response.json();
+      })
+      .then((data) => {
+        setAppointments(data);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error("Error fetching doctor appointments:", error);
+        setMessage("Could not load appointments.");
+        setLoading(false);
+      });
+  }, [doctorId]);
+
   return (
     <div style={{ padding: "30px" }}>
       <h1>Doctor Dashboard</h1>
 
+      {doctorName && <h2>Welcome, Dr. {doctorName}</h2>}
+
+      {message && <p>{message}</p>}
+
       <div
         style={{
-          background: "#fff",
+          border: "1px solid #ccc",
+          borderRadius: "10px",
           padding: "20px",
           marginTop: "20px",
-          borderRadius: "10px",
-          boxShadow: "0 0 10px rgba(0,0,0,0.1)",
         }}
       >
-        <h3>Today's Appointments</h3>
+        <h3>Appointments</h3>
 
-        <ul>
-          <li>9:00 AM - Ahmed Khan</li>
-          <li>10:30 AM - Sara Ali</li>
-          <li>12:00 PM - Fatima Noor</li>
-          <li>2:00 PM - Mohammed Asif</li>
-        </ul>
+        {loading ? (
+          <p>Loading appointments...</p>
+        ) : appointments.length === 0 ? (
+          <p>No appointments found.</p>
+        ) : (
+          <ul>
+            {appointments.map((appointment) => (
+              <li
+                key={appointment.id}
+                style={{ marginBottom: "20px" }}
+              >
+                <strong>
+                  Appointment ID: {appointment.id}
+                </strong>
+
+                <br />
+
+                Date: {appointment.appointment_date}
+
+                <br />
+
+                Time: {appointment.appointment_time}
+
+                <br />
+
+                Patient: {appointment.patient_name}
+
+                <br />
+
+                Patient ID: {appointment.patient_id}
+
+                <br />
+
+                Status: {appointment.status}
+
+                <br />
+                <br />
+
+                <strong>Gemini AI Symptom Summary:</strong>
+
+                <p style={{ whiteSpace: "pre-line" }}>
+                  {appointment.symptom_summary ||
+                    "No AI summary available"}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

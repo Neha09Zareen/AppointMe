@@ -1,0 +1,254 @@
+
+/* Main dashboard layout */
+.admin-dashboard {
+  display: flex;
+  min-height: 100vh;
+  background: #f5f6fc;
+  color: #252746;
+  font-family: Arial, sans-serif;
+}
+
+/* Sidebar */
+.admin-sidebar {
+  width: 235px;
+  min-width: 235px;
+  padding: 28px 18px;
+  background: #29245c;
+  color: #ffffff;
+  box-sizing: border-box;
+}
+
+.admin-sidebar h2 {
+  margin: 0 0 8px;
+  color: #ffffff;
+  font-size: 25px;
+}
+
+.admin-sidebar p {
+  margin: 0;
+  color: #d2cff5;
+}
+
+.admin-sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 32px 0 22px;
+}
+
+.admin-sidebar button {
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #ffffff;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.admin-sidebar nav button:hover,
+.admin-sidebar > button:hover {
+  background: #5147a2;
+}
+
+.admin-sidebar > button {
+  background: #5147a2;
+}
+
+/* Main content */
+.admin-main {
+  flex: 1;
+  min-width: 0;
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+.admin-main header {
+  margin-bottom: 28px;
+}
+
+.admin-main header h1 {
+  margin: 0;
+  color: #29245c;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.admin-main header p {
+  color: #626a83;
+  font-size: 15px;
+}
+
+/* Statistics cards */
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+.admin-stats article {
+  padding: 22px;
+  border: 1px solid #e8e8f3;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(41, 36, 92, 0.06);
+}
+
+.admin-stats article h3 {
+  margin: 0 0 14px;
+  color: #626a83;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.admin-stats article p {
+  margin: 0;
+  color: #5147b7;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+/* Content sections */
+.admin-section {
+  margin-bottom: 26px;
+  padding: 24px;
+  border: 1px solid #e8e8f3;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(41, 36, 92, 0.04);
+  scroll-margin-top: 20px;
+}
+
+.admin-section h2 {
+  margin: 0 0 20px;
+  color: #29245c;
+  font-size: 21px;
+}
+
+/* Tables */
+.admin-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.admin-table-wrapper table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.admin-table-wrapper th {
+  padding: 14px 12px;
+  background: #f0effb;
+  color: #29245c;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-table-wrapper td {
+  padding: 14px 12px;
+  border-bottom: 1px solid #ececf4;
+  color: #414965;
+  font-size: 14px;
+}
+
+.admin-table-wrapper tr:hover td {
+  background: #fafaff;
+}
+
+/* Action buttons */
+.admin-main button {
+  margin: 3px;
+  padding: 9px 13px;
+  border: none;
+  border-radius: 6px;
+  background: #5147b7;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.admin-main button:hover {
+  background: #393178;
+}
+
+.admin-main button:disabled,
+.admin-sidebar button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Status and empty messages */
+.admin-main [role="status"] {
+  padding: 12px;
+  border-radius: 8px;
+  background: #e7f7ec;
+  color: #176534;
+}
+
+.admin-main [role="alert"] {
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff0f0;
+  color: #a32323;
+}
+
+.admin-section > p {
+  color: #626a83;
+}
+
+/* Responsive layout */
+@media (max-width: 1000px) {
+  .admin-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-main {
+    padding: 22px;
+  }
+}
+
+@media (max-width: 650px) {
+  .admin-dashboard {
+    flex-direction: column;
+  }
+
+  .admin-sidebar {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-sidebar nav {
+    margin: 20px 0;
+  }
+
+  .admin-main {
+    padding: 16px;
+  }
+
+  .admin-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-section {
+    padding: 16px;
+  }
+}
+
+.admin-dashboard {
+  min-height: 100vh;
+  height: auto;
+}
+
+.admin-main {
+  min-width: 0;
+  overflow: visible;
+}
+
+.admin-main header,
+.admin-section {
+  scroll-margin-top: 24px;
+}

@@ -1,101 +1,165 @@
 .appointment-booking-page {
   min-height: 100vh;
-  padding: 60px 20px;
+  padding: 35px 16px;
   background: #f7f7fc;
+  box-sizing: border-box;
 }
 
 .appointment-booking-card {
   max-width: 700px;
-  margin: 0 auto;
-  padding: 40px;
-  background: white;
-  border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  margin: auto;
+  padding: 30px;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 8px 25px rgba(53, 31, 122, 0.1);
+  box-sizing: border-box;
 }
 
 .appointment-booking-card h1 {
   text-align: center;
   color: #351f7a;
-  margin-bottom: 35px;
 }
 
 .booking-doctor {
   text-align: center;
-  margin-bottom: 25px;
+  margin: 25px 0;
 }
 
 .booking-doctor-icon {
-  font-size: 55px;
+  font-size: 50px;
 }
 
 .booking-doctor h2 {
-  margin: 10px 0 5px;
-  color: #222;
+  color: #292957;
 }
 
 .booking-doctor p {
   color: #7045d1;
-  font-size: 18px;
   font-weight: 600;
+  text-transform: capitalize;
 }
 
-.booking-info {
-  margin: 25px 0;
-  padding: 20px;
+.booking-info,
+.symptom-summary {
   background: #f7f5ff;
+  padding: 18px;
   border-radius: 12px;
+  margin: 20px 0;
+  color: #393653;
+  overflow-wrap: anywhere;
 }
 
 .appointment-booking-card label {
   display: block;
-  margin-top: 20px;
-  margin-bottom: 8px;
+  margin: 18px 0 8px;
+  color: #292957;
   font-weight: 600;
 }
 
-.appointment-booking-card input {
+.appointment-booking-card input[type="date"],
+.appointment-booking-card textarea {
   width: 100%;
   padding: 12px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
   box-sizing: border-box;
+  border: 1px solid #d9d6f5;
+  border-radius: 9px;
+  background: #fff;
+  color: #292957;
+  font: inherit;
 }
 
-.confirm-booking-button {
-  display: block;
-  margin: 30px auto 0;
-  padding: 13px 28px;
-  border: none;
-  border-radius: 8px;
-  background: #7045d1;
-  color: white;
-  font-size: 16px;
-  cursor: pointer;
+.appointment-booking-card input[type="date"] {
+  color-scheme: light;
+  min-height: 48px;
 }
+
+.appointment-booking-card textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.appointment-booking-card input:focus,
+.appointment-booking-card textarea:focus {
+  outline: none;
+  border-color: #7045d1;
+  box-shadow: 0 0 0 3px rgba(112, 69, 209, 0.12);
+}
+
 .time-slots {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin: 10px 0 25px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0 22px;
 }
 
 .time-slot {
-  padding: 12px;
-  border: 1px solid #ddd;
+  padding: 12px 8px;
+  border: 1px solid #d9d6f5;
   border-radius: 8px;
-  background: white;
+  background: #f6f4ff;
   color: #4b2a91;
-  font-size: 16px;
   cursor: pointer;
-  transition: 0.2s;
 }
 
 .time-slot:hover {
-  background: #f1edff;
+  background: #eeebff;
 }
 
 .time-slot.selected {
-  background: #6f42d3;
+  background: #7045d1;
   color: white;
-  border-color: #6f42d3;
+  border-color: #7045d1;
+}
+
+.summary-button,
+.confirm-booking-button,
+.history-button {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 13px;
+  border: none;
+  border-radius: 9px;
+  background: #7045d1;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.summary-button:hover,
+.confirm-booking-button:hover,
+.history-button:hover {
+  background: #5833b0;
+}
+
+.confirm-booking-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.symptom-summary h3 {
+  color: #351f7a;
+}
+
+.symptom-summary small {
+  color: #68647d;
+  line-height: 1.5;
+}
+
+.booking-message {
+  margin-top: 18px;
+  text-align: center;
+  color: #351f7a;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .appointment-booking-card {
+    padding: 20px 15px;
+  }
+
+  .time-slots {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

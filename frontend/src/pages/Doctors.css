@@ -87,3 +87,27 @@
 .details-button:hover {
   background: #55339b;
 }
+
+/* AppointMe — Doctor search visibility */
+
+.doctor-search,
+.doctor-search input,
+.doctors-page input[type="search"],
+.doctors-page input[type="text"] {
+  color: #292957 !important;
+  background-color: #ffffff !important;
+  border: 1px solid #d9d6f5;
+  border-radius: 10px;
+}
+
+.doctor-search input::placeholder,
+.doctors-page input::placeholder {
+  color: #85839e !important;
+  opacity: 1;
+}
+
+.doctors-page input:focus {
+  outline: none;
+  border-color: #5145cd;
+  box-shadow: 0 0 0 3px rgba(81, 69, 205, 0.12);
+}

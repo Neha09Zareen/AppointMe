@@ -1,74 +1,141 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import "./AppointmentBooking.css";
 
-function AppointmentBooking() {
+export default function AppointmentBooking() {
   const { id } = useParams();
+  const navigate = useNavigate();
 
   const [doctor, setDoctor] = useState(null);
-  const [hospitalName, setHospitalName] = useState("");
-  const [appointmentDate, setAppointmentDate] = useState("");
-  const [appointmentTime, setAppointmentTime] = useState("");
+  const [hospital, setHospital] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [symptoms, setSymptoms] = useState("");
+  const [summary, setSummary] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [booked, setBooked] = useState(false);
 
-  // Available appointment time slots
+  const today = new Date();
+  const minDate = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0"),
+  ].join("-");
+
   const timeSlots = [
     "09:00",
-    "09:30",
     "10:00",
-    "10:30",
     "11:00",
-    "11:30",
     "14:00",
-    "14:30",
     "15:00",
-    "15:30",
     "16:00",
-    "16:30",
+    "17:00",
+    "18:00",
+    "19:00",
+    "20:00",
   ];
 
   useEffect(() => {
-    const fetchDoctor = async () => {
+    async function loadDoctor() {
       try {
-        const doctorResponse = await fetch(
+        const response = await fetch(
           `http://127.0.0.1:5000/doctors/${id}`
         );
 
-        if (!doctorResponse.ok) {
+        if (!response.ok) {
           throw new Error("Doctor not found");
         }
 
-        const doctorData = await doctorResponse.json();
+        const doctorData = await response.json();
         setDoctor(doctorData);
 
-        const hospitalsResponse = await fetch(
+        const hospitalResponse = await fetch(
           "http://127.0.0.1:5000/hospitals"
         );
 
-        const hospitalsData = await hospitalsResponse.json();
+        if (!hospitalResponse.ok) {
+          throw new Error("Could not load hospitals");
+        }
 
-        const hospital = hospitalsData.find(
-          (hospital) => hospital.id === doctorData.hospital_id
+        const hospitals = await hospitalResponse.json();
+
+        const found = hospitals.find(
+          (item) =>
+            String(item.id) === String(doctorData.hospital_id)
         );
 
-        setHospitalName(
-          hospital ? hospital.name : "Unknown Hospital"
-        );
+        setHospital(found?.name || "Unknown Hospital");
       } catch (error) {
-        console.error("Error fetching doctor:", error);
-        setMessage("Could not load doctor information.");
+        setMessage(error.message);
       } finally {
         setLoading(false);
       }
-    };
+    }
 
-    fetchDoctor();
+    loadDoctor();
   }, [id]);
 
-  const handleBooking = async () => {
-    if (!appointmentDate || !appointmentTime) {
-      setMessage("Please select both date and time.");
+  
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
+  
+async function generateSummary() {
+  if (!symptoms.trim()) {
+    setMessage("Please enter your symptoms first.");
+    return;
+  }
+
+  setSummaryLoading(true);
+  setSummary("");
+  setMessage("");
+
+  try {
+    const response = await fetch(
+      "http://127.0.0.1:5000/symptom-summary",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symptoms: symptoms.trim() }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || "Could not generate AI summary.");
+    }
+
+    setSummary(result.summary);
+  } catch (error) {
+    setMessage(error.message || "Could not generate AI summary.");
+  } finally {
+    setSummaryLoading(false);
+  }
+}
+
+  async function handleBooking() {
+    if (!date || !time || !symptoms.trim()) {
+      setMessage(
+        "Please select a date and time and enter your symptoms."
+      );
+      return;
+    }
+
+    if (date < minDate) {
+      setMessage("Please select today or a future date.");
+      return;
+    }
+
+    if (!summary.trim()) {
+      setMessage("Please preview the symptom summary first.");
+      return;
+    }
+
+    const userId = localStorage.getItem("userId");
+
+    if (!userId) {
+      setMessage("Please login again before booking.");
       return;
     }
 
@@ -81,107 +148,149 @@ function AppointmentBooking() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            user_id: 1,
+            patient_id: Number(userId),
             doctor_id: Number(id),
-            hospital_id: doctor.hospital_id,
-            appointment_date: appointmentDate,
-            appointment_time: appointmentTime,
+            appointment_date: date,
+            appointment_time: time,
+            symptoms: symptoms.trim(),
+            symptom_summary: summary,
           }),
         }
       );
 
-      const data = await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Booking failed");
+        throw new Error(
+          result.message || "Booking failed"
+        );
       }
 
+      setBooked(true);
       setMessage("Appointment booked successfully!");
     } catch (error) {
-      console.error("Booking error:", error);
-      setMessage(error.message);
+      setMessage(
+        error.message || "Could not book appointment."
+      );
     }
-  };
+  }
 
   if (loading) {
     return <p>Loading doctor information...</p>;
   }
 
   if (!doctor) {
-    return <p>Doctor information not found.</p>;
+    return <p>{message || "Doctor not found."}</p>;
   }
 
   return (
     <div className="appointment-booking-page">
       <div className="appointment-booking-card">
-
         <h1>Book Appointment</h1>
 
         <div className="booking-doctor">
           <div className="booking-doctor-icon">👨‍⚕️</div>
-
           <h2>{doctor.name}</h2>
-
           <p>{doctor.specialization}</p>
         </div>
 
         <div className="booking-info">
           <p>
-            <strong>Hospital:</strong> {hospitalName}
+            <strong>Hospital:</strong> {hospital}
           </p>
-
           <p>
-            <strong>Experience:</strong> {doctor.experience} years
+            <strong>Experience:</strong>{" "}
+            {doctor.experience} years
           </p>
-
           <p>
             <strong>Degrees:</strong> {doctor.degrees}
           </p>
         </div>
 
-        <label>Appointment Date</label>
-
+        <label htmlFor="booking-date">
+          Appointment Date
+        </label>
         <input
+          id="booking-date"
           type="date"
-          value={appointmentDate}
-          onChange={(e) => setAppointmentDate(e.target.value)}
+          min={minDate}
+          value={date}
+          disabled={booked}
+          onChange={(e) => {
+            setDate(e.target.value);
+            setMessage("");
+          }}
         />
 
         <label>Appointment Time</label>
-
         <div className="time-slots">
-          {timeSlots.map((time) => (
+          {timeSlots.map((slot) => (
             <button
               type="button"
-              key={time}
+              key={slot}
+              disabled={booked}
               className={
-                appointmentTime === time
+                time === slot
                   ? "time-slot selected"
                   : "time-slot"
               }
-              onClick={() => setAppointmentTime(time)}
+              onClick={() => {
+                setTime(slot);
+                setMessage("");
+              }}
             >
-              {time}
+              {slot}
             </button>
           ))}
         </div>
 
+        <label htmlFor="symptoms">
+          Describe Your Symptoms
+        </label>
+        <textarea
+          id="symptoms"
+          rows={5}
+          value={symptoms}
+          disabled={booked}
+          placeholder="Describe your symptoms and when they started..."
+          onChange={(e) => {
+            setSymptoms(e.target.value);
+            setSummary("");
+            setMessage("");
+          }}
+        />
+
+        
+<button
+  type="button"
+  className="summary-button"
+  disabled={booked || summaryLoading}
+  onClick={generateSummary}
+>
+  {summaryLoading ? "Generating AI Summary..." : "Preview Symptom Summary"}
+</button>
+
+
+        {summary && (
+  <div className="symptom-summary">
+    <h3>Gemini AI Symptom Summary</h3>
+    <p style={{ whiteSpace: "pre-line" }}>{summary}</p>
+  </div>
+)}
+
         <button
+          type="button"
           className="confirm-booking-button"
           onClick={handleBooking}
+          disabled={booked}
         >
-          Confirm Appointment
+          {booked ? "Appointment Confirmed" : "Confirm Appointment"}
         </button>
 
         {message && (
-          <p className="booking-message">
-            {message}
-          </p>
+          <p className="booking-message">{message}</p>
         )}
-
       </div>
     </div>
   );
 }
-
-export default AppointmentBooking;

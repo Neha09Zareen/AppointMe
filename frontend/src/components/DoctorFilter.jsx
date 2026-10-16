@@ -1,8 +1,10 @@
+
 import "./DoctorFilter.css";
 
 function DoctorFilter({
   selectedSpecialization,
   onSpecializationChange,
+  specializations = [],
 }) {
   return (
     <div className="doctor-filter">
@@ -13,8 +15,12 @@ function DoctorFilter({
         }
       >
         <option value="All">All Specializations</option>
-        <option value="Cardiologist">Cardiologist</option>
-        <option value="Neurologist">Neurologist</option>
+
+        {specializations.map((specialization) => (
+          <option key={specialization} value={specialization}>
+            {specialization}
+          </option>
+        ))}
       </select>
     </div>
   );
