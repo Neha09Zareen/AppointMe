@@ -159,11 +159,8 @@ def create_tables():
     connection.close()
 
 
-<<<<<<< HEAD
-=======
 # PATIENT FUNCTIONS
 
->>>>>>> origin/main
 def add_user(name, email, password, phone):
     connection = get_connection()
 
@@ -181,64 +178,10 @@ def add_user(name, email, password, phone):
             phone
         ))
 
-<<<<<<< HEAD
-
-def add_hospital(name, address, phone, rating, speciality):
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    cursor.execute("""
-    INSERT INTO hospitals (name, address, phone, rating, speciality)
-    VALUES (?, ?, ?, ?, ?)
-    """, (name, address, phone, rating, speciality))
-
-    connection.commit()
-    connection.close()
-
-
-def get_all_hospitals():
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    cursor.execute("SELECT * FROM hospitals")
-
-    hospitals = cursor.fetchall()
-
-    connection.close()
-
-    return hospitals
-
-def add_doctor(name, specialization, experience, degrees, hospital_id):
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    cursor.execute("""
-    INSERT INTO doctors
-    (name, specialization, experience, degrees, hospital_id)
-    VALUES (?, ?, ?, ?, ?)
-    """, (name, specialization, experience, degrees, hospital_id))
-
-    connection.commit()
-    connection.close()
-
-
-def get_all_doctors():
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    cursor.execute("SELECT * FROM doctors")
-
-    doctors = cursor.fetchall()
-
-    connection.close()
-
-    return doctors
-=======
         connection.commit()
 
     finally:
         connection.close()
->>>>>>> origin/main
 
 
 def get_user_by_email(email):
@@ -462,20 +405,10 @@ def cancel_appointment(appointment_id):
     cursor = connection.cursor()
 
     cursor.execute("""
-<<<<<<< HEAD
         UPDATE appointments
         SET status = 'Cancelled'
         WHERE id = ?
     """, (appointment_id,))
-=======
-    UPDATE appointments
-    SET status = ?
-    WHERE id = ?
-    """, (
-        "Cancelled",
-        appointment_id
-    ))
->>>>>>> origin/main
 
     connection.commit()
     connection.close()

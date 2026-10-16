@@ -1,14 +1,11 @@
+
 import os
-from dotenv import load_dotenv
-from google import genai
-
-load_dotenv()
-
-gemini_api_key = os.getenv("GEMINI_API_KEY")
-gemini_client = genai.Client(api_key=gemini_api_key) if gemini_api_key else None
-from flask import Flask, request, jsonify
-from flask_cors import CORS
 from datetime import datetime
+
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from google import genai
 
 from database import (
     create_tables,
@@ -19,199 +16,119 @@ from database import (
     add_admin,
     get_all_hospitals,
     get_all_doctors,
-    get_connection
+    get_connection,
+    book_appointment,
+    add_feedback,
+    get_doctor_feedback,
+    get_doctor_appointments,
+    get_all_users,
+    get_all_appointments,
+)
+
+load_dotenv()
+api_key = os.getenv("GEMINI_API_KEY")
+gemini_client = genai.Client(api_key=api_key) if api_key else None
+
+app = Flask(__name__)
+
+CORS(
+    app,
+    resources={r"/*": {"origins": [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+    ]}},
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"]
 )
 
 
-app = Flask(__name__)
-CORS(app)
-
-
-# =========================
-# HOME
-# =========================
-
-@app.route("/")
+@app.route("/", methods=["GET"])
 def home():
     return "Welcome to AppointMe Backend!"
 
 
-# =========================
-# PATIENT REGISTER
-# =========================
-
 @app.route("/register", methods=["POST"])
 def register():
+    data = request.get_json(silent=True) or {}
+    name = data.get("name")
+    email = data.get("email")
+    password = data.get("password")
+    phone = data.get("phone")
+
+    if not all([name, email, password, phone]):
+        return jsonify({"message": "All fields are required"}), 400
+
     try:
-        data = request.get_json()
-
-<<<<<<< HEAD
-        if not data:
-            return jsonify({
-                "message": "No data received"
-            }), 400
-
-        name = data.get("name")
-        email = data.get("email")
-        password = data.get("password")
-        phone = data.get("phone")
-
-        if not name or not email or not password or not phone:
-            return jsonify({
-                "message": "All fields are required"
-            }), 400
-
         add_user(name, email, password, phone)
-
-        return jsonify({
-            "message": "Registration Successful"
-        }), 201
-
-    except Exception as error:
-        print("REGISTER ERROR:", error)
-
-        return jsonify({
-            "message": str(error)
-        }), 500
-
-
-# =========================
-# LOGIN
-=======
-    try:
-        add_user(
-            data["name"],
-            data["email"],
-            data["password"],
-            data["phone"]
-        )
-
-        user = get_user_by_email(data["email"])
-
+        user = get_user_by_email(email)
         return jsonify({
             "message": "Registration Successful",
             "user_id": user[0],
             "name": user[1],
-            "email": user[2]
-        })
-
-    except Exception as error:
-        print("Registration error:", error)
-
+            "email": user[2],
+        }), 201
+    except Exception:
+        app.logger.exception("Registration failed")
         return jsonify({
-            "message": "Email already registered"
+            "message": "Registration failed; the email may already be registered."
         }), 400
 
 
-# =========================
-# PATIENT LOGIN
->>>>>>> origin/main
-# =========================
-
 @app.route("/login", methods=["POST"])
 def login():
-    try:
-        data = request.get_json()
+    data = request.get_json(silent=True) or {}
+    email = data.get("email")
+    password = data.get("password")
 
-        if not data:
-            return jsonify({
-                "message": "No data received"
-            }), 400
+    if not email or not password:
+        return jsonify({"message": "Email and password are required"}), 400
 
-        email = data.get("email")
-        password = data.get("password")
+    user = get_user_by_email(email)
 
-        if not email or not password:
-            return jsonify({
-                "message": "Email and password are required"
-            }), 400
+    if user is None:
+        return jsonify({"message": "User not found"}), 404
 
-        user = get_user_by_email(email)
+    if user[3] != password:
+        return jsonify({"message": "Incorrect password"}), 401
 
-        if user is None:
-            return jsonify({
-                "message": "User not found"
-            }), 404
-
-        if user[3] != password:
-            return jsonify({
-                "message": "Incorrect password"
-            }), 401
-
-        return jsonify({
-            "message": "Login Successful",
-            "user_id": user[0],
-            "name": user[1],
-            "email": user[2]
-        }), 200
-
-    except Exception as error:
-        print("LOGIN ERROR:", error)
-
-        return jsonify({
-            "message": str(error)
-        }), 500
-
-<<<<<<< HEAD
-
-# =========================
-# HOSPITALS
-# =========================
-=======
     return jsonify({
         "message": "Login Successful",
         "user_id": user[0],
         "name": user[1],
-        "email": user[2]
-    })
->>>>>>> origin/main
+        "email": user[2],
+    }), 200
 
-
-# =========================
-# DOCTOR REGISTER
-# =========================
 
 @app.route("/doctor-register", methods=["POST"])
 def doctor_register():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
+
+    required = [
+        "name", "email", "password", "phone",
+        "specialization", "experience", "degrees", "hospital_id"
+    ]
+
+    if any(data.get(key) in (None, "") for key in required):
+        return jsonify({"message": "All fields are required"}), 400
+
+    connection = None
 
     try:
-        name = data["name"]
-        email = data["email"]
-        password = data["password"]
-        phone = data["phone"]
-        specialization = data["specialization"]
-        experience = data["experience"]
-        degrees = data["degrees"]
-        hospital_id = data["hospital_id"]
-
         connection = get_connection()
         cursor = connection.cursor()
 
         cursor.execute(
             "SELECT id FROM doctor_accounts WHERE login_id = ?",
-            (email,)
+            (data["email"],)
         )
-
-        existing_doctor = cursor.fetchone()
-
-        if existing_doctor:
-            connection.close()
-
-            return jsonify({
-                "message": "Doctor account already exists"
-            }), 400
+        if cursor.fetchone():
+            return jsonify({"message": "Doctor account already exists"}), 400
 
         cursor.execute(
             "SELECT id FROM users WHERE email = ?",
-            (email,)
+            (data["email"],)
         )
-
-        existing_patient = cursor.fetchone()
-
-        if existing_patient:
-            connection.close()
-
+        if cursor.fetchone():
             return jsonify({
                 "message": "This email is already registered as a patient account"
             }), 400
@@ -221,11 +138,11 @@ def doctor_register():
             (name, specialization, experience, degrees, hospital_id)
             VALUES (?, ?, ?, ?, ?)
         """, (
-            name,
-            specialization,
-            experience,
-            degrees,
-            hospital_id
+            data["name"],
+            data["specialization"],
+            data["experience"],
+            data["degrees"],
+            data["hospital_id"],
         ))
 
         doctor_id = cursor.lastrowid
@@ -236,46 +153,45 @@ def doctor_register():
             VALUES (?, ?, ?, ?)
         """, (
             doctor_id,
-            email,
-            password,
-            "Pending"
+            data["email"],
+            data["password"],
+            "Pending",
         ))
 
         connection.commit()
-        connection.close()
 
         return jsonify({
             "message": "Doctor registration submitted. Waiting for admin approval.",
-            "doctor_id": doctor_id
-        })
+            "doctor_id": doctor_id,
+        }), 201
 
-    except Exception as error:
-        print("Doctor registration error:", error)
+    except Exception:
+        app.logger.exception("Doctor registration failed")
+        return jsonify({"message": "Doctor registration failed"}), 400
 
-        return jsonify({
-            "message": "Doctor registration failed"
-        }), 400
+    finally:
+        if connection is not None:
+            connection.close()
 
-
-# =========================
-# DOCTOR LOGIN
-# =========================
 
 @app.route("/doctor-login", methods=["POST"])
 def doctor_login():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
+    login_id = data.get("login_id")
+    password = data.get("password")
 
-    doctor = get_doctor_by_login_id(data["login_id"])
+    if not login_id or not password:
+        return jsonify({
+            "message": "Login ID and password are required"
+        }), 400
+
+    doctor = get_doctor_by_login_id(login_id)
 
     if doctor is None:
-        return jsonify({
-            "message": "Invalid doctor login ID"
-        }), 401
+        return jsonify({"message": "Invalid doctor login ID"}), 401
 
-    if doctor[3] != data["password"]:
-        return jsonify({
-            "message": "Incorrect password"
-        }), 401
+    if doctor[3] != password:
+        return jsonify({"message": "Incorrect password"}), 401
 
     if doctor[4] != "Approved":
         return jsonify({
@@ -290,195 +206,150 @@ def doctor_login():
         "specialization": doctor[6],
         "experience": doctor[7],
         "degrees": doctor[8],
-        "hospital_id": doctor[9]
-    })
+        "hospital_id": doctor[9],
+    }), 200
 
-
-# =========================
-# ADMIN REGISTER
-# =========================
 
 @app.route("/admin-register", methods=["POST"])
 def admin_register():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
 
-    ADMIN_REGISTRATION_KEY = "APPOINTME-ADMIN"
+    if not all(data.get(key) for key in (
+        "login_id", "password", "registration_key"
+    )):
+        return jsonify({"message": "All fields are required"}), 400
 
-    login_id = data.get("login_id")
-    password = data.get("password")
-    registration_key = data.get("registration_key")
+    expected_key = os.getenv(
+        "ADMIN_REGISTRATION_KEY",
+        "APPOINTME-ADMIN"
+    )
 
-    if not login_id or not password or not registration_key:
-        return jsonify({
-            "message": "All fields are required"
-        }), 400
+    if data["registration_key"] != expected_key:
+        return jsonify({"message": "Invalid admin registration key"}), 403
 
-    if registration_key != ADMIN_REGISTRATION_KEY:
-        return jsonify({
-            "message": "Invalid admin registration key"
-        }), 403
-
-    existing_admin = get_admin_by_login_id(login_id)
-
-    if existing_admin:
-        return jsonify({
-            "message": "Admin login ID already exists"
-        }), 400
+    if get_admin_by_login_id(data["login_id"]):
+        return jsonify({"message": "Admin login ID already exists"}), 400
 
     try:
-        add_admin(
-            login_id,
-            password
-        )
+        add_admin(data["login_id"], data["password"])
+        return jsonify({"message": "Admin registration successful"}), 201
+    except Exception:
+        app.logger.exception("Admin registration failed")
+        return jsonify({"message": "Admin registration failed"}), 400
 
-        return jsonify({
-            "message": "Admin registration successful"
-        })
-
-    except Exception as error:
-        print("Admin registration error:", error)
-
-        return jsonify({
-            "message": "Admin registration failed"
-        }), 400
-
-
-# =========================
-# ADMIN LOGIN
-# =========================
 
 @app.route("/admin-login", methods=["POST"])
 def admin_login():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
+    login_id = data.get("login_id")
+    password = data.get("password")
 
-    admin = get_admin_by_login_id(data["login_id"])
+    if not login_id or not password:
+        return jsonify({
+            "message": "Login ID and password are required"
+        }), 400
+
+    admin = get_admin_by_login_id(login_id)
 
     if admin is None:
-        return jsonify({
-            "message": "Invalid admin login ID"
-        }), 401
+        return jsonify({"message": "Invalid admin login ID"}), 401
 
-    if admin[2] != data["password"]:
-        return jsonify({
-            "message": "Incorrect password"
-        }), 401
+    if admin[2] != password:
+        return jsonify({"message": "Incorrect password"}), 401
 
     return jsonify({
         "message": "Admin Login Successful",
         "admin_id": admin[0],
-        "login_id": admin[1]
-    })
-
+        "login_id": admin[1],
+    }), 200
 
 # =========================
-# ADMIN - PENDING DOCTORS
+# ADMIN: PENDING DOCTORS
 # =========================
 
 @app.route("/admin/pending-doctors", methods=["GET"])
 def get_pending_doctors():
     connection = get_connection()
-    cursor = connection.cursor()
+    try:
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT
+                doctor_accounts.id,
+                doctors.id,
+                doctors.name,
+                doctor_accounts.login_id,
+                doctors.specialization,
+                doctors.experience,
+                doctors.degrees,
+                doctors.hospital_id,
+                doctor_accounts.status
+            FROM doctor_accounts
+            JOIN doctors ON doctor_accounts.doctor_id = doctors.id
+            WHERE doctor_accounts.status = 'Pending'
+            ORDER BY doctor_accounts.id DESC
+        """)
+        doctors = cursor.fetchall()
 
-    cursor.execute("""
-        SELECT
-            doctor_accounts.id,
-            doctors.id,
-            doctors.name,
-            doctor_accounts.login_id,
-            doctors.specialization,
-            doctors.experience,
-            doctors.degrees,
-            doctors.hospital_id,
-            doctor_accounts.status
-        FROM doctor_accounts
-        JOIN doctors
-        ON doctor_accounts.doctor_id = doctors.id
-        WHERE doctor_accounts.status = 'Pending'
-        ORDER BY doctor_accounts.id DESC
-    """)
+        return jsonify([
+            {
+                "account_id": row[0],
+                "doctor_id": row[1],
+                "name": row[2],
+                "email": row[3],
+                "specialization": row[4],
+                "experience": row[5],
+                "degrees": row[6],
+                "hospital_id": row[7],
+                "status": row[8],
+            }
+            for row in doctors
+        ]), 200
+    finally:
+        connection.close()
 
-    doctors = cursor.fetchall()
-
-    connection.close()
-
-    return jsonify([
-        {
-            "account_id": doctor[0],
-            "doctor_id": doctor[1],
-            "name": doctor[2],
-            "email": doctor[3],
-            "specialization": doctor[4],
-            "experience": doctor[5],
-            "degrees": doctor[6],
-            "hospital_id": doctor[7],
-            "status": doctor[8]
-        }
-        for doctor in doctors
-    ])
-
-
-# =========================
-# ADMIN - APPROVE DOCTOR
-# =========================
 
 @app.route("/admin/doctors/<int:doctor_id>/approve", methods=["PUT"])
 def approve_doctor(doctor_id):
     connection = get_connection()
-    cursor = connection.cursor()
+    try:
+        cursor = connection.cursor()
+        cursor.execute("""
+            UPDATE doctor_accounts
+            SET status = 'Approved'
+            WHERE doctor_id = ? AND status = 'Pending'
+        """, (doctor_id,))
+        connection.commit()
 
-    cursor.execute("""
-        UPDATE doctor_accounts
-        SET status = 'Approved'
-        WHERE doctor_id = ?
-        AND status = 'Pending'
-    """, (doctor_id,))
+        if cursor.rowcount == 0:
+            return jsonify({
+                "message": "Pending doctor account not found"
+            }), 404
 
-    connection.commit()
-
-    if cursor.rowcount == 0:
+        return jsonify({"message": "Doctor approved successfully"}), 200
+    finally:
         connection.close()
 
-        return jsonify({
-            "message": "Pending doctor account not found"
-        }), 404
-
-    connection.close()
-
-    return jsonify({
-        "message": "Doctor approved successfully"
-    })
-
-
-# =========================
-# ADMIN - REJECT DOCTOR
-# =========================
 
 @app.route("/admin/doctors/<int:doctor_id>/reject", methods=["PUT"])
 def reject_doctor(doctor_id):
     connection = get_connection()
-    cursor = connection.cursor()
+    try:
+        cursor = connection.cursor()
+        cursor.execute("""
+            UPDATE doctor_accounts
+            SET status = 'Rejected'
+            WHERE doctor_id = ? AND status = 'Pending'
+        """, (doctor_id,))
+        connection.commit()
 
-    cursor.execute("""
-        UPDATE doctor_accounts
-        SET status = 'Rejected'
-        WHERE doctor_id = ?
-        AND status = 'Pending'
-    """, (doctor_id,))
+        if cursor.rowcount == 0:
+            return jsonify({
+                "message": "Pending doctor account not found"
+            }), 404
 
-    connection.commit()
-
-    if cursor.rowcount == 0:
+        return jsonify({"message": "Doctor rejected successfully"}), 200
+    finally:
         connection.close()
-
-        return jsonify({
-            "message": "Pending doctor account not found"
-        }), 404
-
-    connection.close()
-
-    return jsonify({
-        "message": "Doctor rejected successfully"
-    })
 
 
 # =========================
@@ -489,30 +360,20 @@ def reject_doctor(doctor_id):
 def get_hospitals():
     try:
         hospitals = get_all_hospitals()
-
         return jsonify([
             {
-                "id": hospital[0],
-                "name": hospital[1],
-                "address": hospital[2],
-                "phone": hospital[3],
-                "rating": hospital[4],
-                "speciality": hospital[5]
+                "id": row[0],
+                "name": row[1],
+                "address": row[2],
+                "phone": row[3],
+                "rating": row[4],
+                "speciality": row[5],
             }
-            for hospital in hospitals
+            for row in hospitals
         ]), 200
-
-    except Exception as error:
-        print("HOSPITAL ERROR:", error)
-
-        return jsonify({
-            "message": str(error)
-        }), 500
-
-
-# =========================
-# ALL DOCTORS
-# =========================
+    except Exception:
+        app.logger.exception("Hospital retrieval failed")
+        return jsonify({"message": "Could not retrieve hospitals"}), 500
 
 
 # =========================
@@ -523,405 +384,181 @@ def get_hospitals():
 def get_doctors():
     try:
         doctors = get_all_doctors()
-
-<<<<<<< HEAD
         return jsonify([
             {
-=======
-    return jsonify([
-        {
-            "id": doctor[0],
-            "name": doctor[1],
-            "specialization": doctor[2],
-            "experience": doctor[3],
-            "degrees": doctor[4],
-            "hospital_id": doctor[5]
-        }
-        for doctor in doctors
-    ])
-
-
-@app.route("/doctors/<int:doctor_id>", methods=["GET"])
-def get_doctor(doctor_id):
-    doctors = get_all_doctors()
-
-    for doctor in doctors:
-        if doctor[0] == doctor_id:
-            return jsonify({
->>>>>>> origin/main
-                "id": doctor[0],
-                "name": doctor[1],
-                "specialization": doctor[2],
-                "experience": doctor[3],
-                "degrees": doctor[4],
-                "hospital_id": doctor[5]
+                "id": row[0],
+                "name": row[1],
+                "specialization": row[2],
+                "experience": row[3],
+                "degrees": row[4],
+                "hospital_id": row[5],
             }
-            for doctor in doctors
+            for row in doctors
         ]), 200
+    except Exception:
+        app.logger.exception("Doctor retrieval failed")
+        return jsonify({"message": "Could not retrieve doctors"}), 500
 
-<<<<<<< HEAD
-    except Exception as error:
-        print("DOCTORS ERROR:", error)
-
-        return jsonify({
-            "message": str(error)
-        }), 500
-
-
-# =========================
-# SINGLE DOCTOR
-# =========================
 
 @app.route("/doctors/<int:doctor_id>", methods=["GET"])
 def get_doctor(doctor_id):
     try:
         doctors = get_all_doctors()
+        doctor = next(
+            (row for row in doctors if row[0] == doctor_id),
+            None
+        )
 
-        for doctor in doctors:
-            if doctor[0] == doctor_id:
-                return jsonify({
-                    "id": doctor[0],
-                    "name": doctor[1],
-                    "specialization": doctor[2],
-                    "experience": doctor[3],
-                    "degrees": doctor[4],
-                    "hospital_id": doctor[5]
-                }), 200
+        if doctor is None:
+            return jsonify({"message": "Doctor not found"}), 404
 
         return jsonify({
-            "message": "Doctor not found"
-        }), 404
-
-    except Exception as error:
-        print("DOCTOR ERROR:", error)
-
-        return jsonify({
-            "message": str(error)
-        }), 500
-=======
-    return jsonify({
-        "error": "Doctor not found"
-    }), 404
->>>>>>> origin/main
+            "id": doctor[0],
+            "name": doctor[1],
+            "specialization": doctor[2],
+            "experience": doctor[3],
+            "degrees": doctor[4],
+            "hospital_id": doctor[5],
+        }), 200
+    except Exception:
+        app.logger.exception("Doctor retrieval failed")
+        return jsonify({"message": "Could not retrieve doctor"}), 500
 
 
 # =========================
 # BOOK APPOINTMENT
 # =========================
-<<<<<<< HEAD
 
 @app.route("/appointments", methods=["POST"])
 def book_appointment_route():
+    data = request.get_json(silent=True) or {}
+
+    user_id = data.get("user_id", data.get("patient_id"))
+    doctor_id = data.get("doctor_id")
+    hospital_id = data.get("hospital_id")
+    appointment_date = data.get("appointment_date")
+    appointment_time = data.get("appointment_time")
+
+    if not all(value is not None for value in (
+        user_id, doctor_id, appointment_date, appointment_time
+    )):
+        return jsonify({
+            "message": "User ID, doctor ID, appointment date and time are required"
+        }), 400
+
+    connection = None
     try:
-        data = request.get_json()
+        user_id = int(user_id)
+        doctor_id = int(doctor_id)
 
-        print("BOOKING DATA RECEIVED:", data)
-
-        if not data:
-            return jsonify({
-                "message": "No data received"
-            }), 400
-
-        # Accept user_id from frontend
-        user_id = data.get("user_id")
-
-        doctor_id = data.get("doctor_id")
-        hospital_id = data.get("hospital_id")
-        appointment_date = data.get("appointment_date")
-        appointment_time = data.get("appointment_time")
-
-        if user_id is None:
-            # Keep compatibility with the current frontend
-            user_id = data.get("patient_id")
-
-        if user_id is None:
-            return jsonify({
-                "message": "User ID is required"
-            }), 400
-
-        # Check if user exists before creating the appointment
         connection = get_connection()
         cursor = connection.cursor()
 
-        cursor.execute("""
-            SELECT id
-            FROM users
-            WHERE id = ?
-        """, (int(user_id),))
+        cursor.execute("SELECT id FROM users WHERE id = ?", (user_id,))
+        if cursor.fetchone() is None:
+            return jsonify({"message": "User not found"}), 404
 
-        user = cursor.fetchone()
-        connection.close()
+        cursor.execute(
+            "SELECT id, hospital_id FROM doctors WHERE id = ?",
+            (doctor_id,)
+        )
+        doctor = cursor.fetchone()
 
-        if user is None:
-            return jsonify({
-                "message": "User not found"
-            }), 404
-
-        if doctor_id is None:
-            return jsonify({
-                "message": "Doctor ID is required"
-            }), 400
+        if doctor is None:
+            return jsonify({"message": "Doctor not found"}), 404
 
         if hospital_id is None:
-            # Get hospital automatically from doctor
-            doctors = get_all_doctors()
+            hospital_id = doctor[1]
+        else:
+            hospital_id = int(hospital_id)
 
-            doctor = next(
-                (d for d in doctors if d[0] == int(doctor_id)),
-                None
-            )
+        cursor.execute("""
+            SELECT id FROM appointments
+            WHERE doctor_id = ?
+              AND appointment_date = ?
+              AND appointment_time = ?
+              AND status != 'Cancelled'
+        """, (doctor_id, appointment_date, appointment_time))
 
-            if doctor is None:
-                return jsonify({
-                    "message": "Doctor not found"
-                }), 404
-
-            hospital_id = doctor[5]
-
-        if not appointment_date:
+        if cursor.fetchone():
             return jsonify({
-                "message": "Appointment date is required"
-            }), 400
+                "message": "This time slot is already booked for this doctor"
+            }), 409
 
-        if not appointment_time:
-            return jsonify({
-                "message": "Appointment time is required"
-            }), 400
+        cursor.execute("""
+            INSERT INTO appointments
+            (user_id, doctor_id, hospital_id, appointment_date,
+             appointment_time, status)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            user_id, doctor_id, hospital_id,
+            appointment_date, appointment_time, "Booked"
+        ))
 
-        appointment_id = book_appointment(
-            int(user_id),
-            int(doctor_id),
-            int(hospital_id),
-            appointment_date,
-            appointment_time
-        )
-
-        print("APPOINTMENT BOOKED:", appointment_id)
+        appointment_id = cursor.lastrowid
+        connection.commit()
 
         return jsonify({
             "message": "Appointment booked successfully",
             "appointment_id": appointment_id
         }), 201
 
-    except Exception as error:
-        print("BOOKING ERROR:", error)
-
-        return jsonify({
-            "message": str(error)
-        }), 500
+    except (ValueError, TypeError):
+        return jsonify({"message": "Invalid user, doctor or hospital ID"}), 400
+    except Exception:
+        app.logger.exception("Appointment booking failed")
+        return jsonify({"message": "Could not book appointment"}), 500
+    finally:
+        if connection is not None:
+            connection.close()
 
 
 # =========================
-# GET PATIENT APPOINTMENTS
+# PATIENT APPOINTMENT HISTORY
 # =========================
 
 @app.route("/appointments/<int:user_id>", methods=["GET"])
 def get_patient_appointments(user_id):
+    connection = get_connection()
     try:
-        connection = get_connection()
         cursor = connection.cursor()
-
         cursor.execute("""
             SELECT
-                id,
-                user_id,
-                doctor_id,
-                hospital_id,
-                appointment_date,
-                appointment_time,
-                status
+                appointments.id,
+                appointments.user_id,
+                appointments.doctor_id,
+                appointments.hospital_id,
+                appointments.appointment_date,
+                appointments.appointment_time,
+                appointments.status,
+                doctors.name
             FROM appointments
-            WHERE user_id = ?
-            ORDER BY appointment_date, appointment_time
+            LEFT JOIN doctors
+                ON appointments.doctor_id = doctors.id
+            WHERE appointments.user_id = ?
+            ORDER BY appointments.appointment_date, appointments.appointment_time
         """, (user_id,))
-
-        appointments = cursor.fetchall()
-
-        connection.close()
+        rows = cursor.fetchall()
 
         return jsonify([
             {
-                "id": appointment[0],
-                "user_id": appointment[1],
-                "doctor_id": appointment[2],
-                "hospital_id": appointment[3],
-                "appointment_date": appointment[4],
-                "appointment_time": appointment[5],
-                "status": appointment[6]
+                "id": row[0],
+                "user_id": row[1],
+                "doctor_id": row[2],
+                "hospital_id": row[3],
+                "appointment_date": row[4],
+                "appointment_time": row[5],
+                "status": row[6],
+                "doctor_name": row[7],
             }
-            for appointment in appointments
+            for row in rows
         ]), 200
-
-    except Exception as error:
-        print("APPOINTMENT HISTORY ERROR:", error)
-
-        return jsonify({
-            "message": str(error)
-        }), 500
-
-=======
-
-
-def generate_symptom_summary(symptoms):
-    if not gemini_client:
-        raise RuntimeError("GEMINI_API_KEY is missing from backend .env")
-
-    response = gemini_client.models.generate_content(
-        model="gemini-3.5-flash-lite",
-        contents=f"""
-Create a concise symptom summary for a doctor.
-
-Rules:
-- Use short bullet points.
-- List each symptom separately.
-- Include duration only when explicitly mentioned.
-- Do not diagnose, prescribe, or invent details.
-- Do not add disclaimers or extra notes.
-
-Patient-reported symptoms:
-{symptoms}
-"""
-    )
-
-    summary = (response.text or "").strip()
-
-    if not summary:
-        raise RuntimeError("Gemini returned an empty summary.")
-
-    return summary
-
-@app.route("/symptom-summary", methods=["POST"])
-def preview_symptom_summary():
-    data = request.get_json() or {}
-    symptoms = (data.get("symptoms") or "").strip()
-
-    if not symptoms:
-        return jsonify({"message": "Please enter your symptoms."}), 400
-
-    try:
-        summary = generate_symptom_summary(symptoms)
-        return jsonify({"summary": summary})
-    except Exception as error:
-        print("Gemini summary error:", error)
-        return jsonify({
-            "message": "Could not generate the AI symptom summary. Please try again."
-        }), 502
-
-@app.route("/appointments", methods=["POST"])
-
-def book_appointment():
-    data = request.get_json() or {}
-
-    patient_id = data.get("patient_id")
-    doctor_id = data.get("doctor_id")
-    appointment_date = data.get("appointment_date")
-    appointment_time = data.get("appointment_time")
-    symptoms = (data.get("symptoms") or "").strip()
-    symptom_summary = ""
-
-    if not all([patient_id, doctor_id, appointment_date, appointment_time]):
-        return jsonify({
-            "message": "Patient, doctor, date and time are required."
-        }), 400
-
-    if not symptoms:
-        return jsonify({"message": "Please enter your symptoms."}), 400
-
-    try:
-        symptom_summary = generate_symptom_summary(symptoms)
-    except Exception as error:
-        print("Gemini summary error:", error)
-        return jsonify({
-            "message": "Could not generate the AI symptom summary. Please try again."
-        }), 502
-
-    allowed_time_slots = {
-        "09:00", "10:00", "11:00", "14:00", "15:00",
-        "16:00", "17:00", "18:00", "19:00", "20:00"
-    }
-
-    if appointment_time not in allowed_time_slots:
-        return jsonify({"message": "Invalid appointment time slot."}), 400
-
-    try:
-        selected_date = datetime.strptime(appointment_date, "%Y-%m-%d").date()
-    except (ValueError, TypeError):
-        return jsonify({"message": "Invalid appointment date format."}), 400
-
-    now = datetime.now()
-
-    if selected_date < now.date():
-        return jsonify({"message": "Cannot book an appointment for a past date."}), 400
-
-    if selected_date == now.date():
-        selected_datetime = datetime.strptime(
-            f"{appointment_date} {appointment_time}", "%Y-%m-%d %H:%M"
-        )
-        if selected_datetime <= now:
-            return jsonify({"message": "This appointment time has already passed."}), 400
-
-    connection = get_connection()
-
-    try:
-        cursor = connection.cursor()
-
-        cursor.execute("SELECT id FROM users WHERE id = ?", (patient_id,))
-        if cursor.fetchone() is None:
-            return jsonify({"message": "Patient not found."}), 404
-
-        cursor.execute("""
-            SELECT doctors.id
-            FROM doctors
-            JOIN doctor_accounts ON doctors.id = doctor_accounts.doctor_id
-            WHERE doctors.id = ? AND doctor_accounts.status = 'Approved'
-        """, (doctor_id,))
-
-        if cursor.fetchone() is None:
-            return jsonify({"message": "Doctor not found or not approved."}), 404
-
-        cursor.execute("""
-            SELECT id FROM appointments
-            WHERE doctor_id = ?
-            AND appointment_date = ?
-            AND appointment_time = ?
-            AND status != 'Cancelled'
-        """, (doctor_id, appointment_date, appointment_time))
-
-        if cursor.fetchone():
-            return jsonify({"message": "This time slot is already booked."}), 409
-
-        cursor.execute("PRAGMA table_info(appointments)")
-        columns = {row[1] for row in cursor.fetchall()}
-
-        if "symptoms" not in columns or "symptom_summary" not in columns:
-            return jsonify({
-                "message": "Database columns are missing. Update the appointments table first."
-            }), 500
-
-        cursor.execute("""
-            INSERT INTO appointments (
-                patient_id, doctor_id, appointment_date,
-                appointment_time, status, symptoms, symptom_summary
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
-            patient_id, doctor_id, appointment_date,
-            appointment_time, "Booked", symptoms, symptom_summary
-        ))
-
-        connection.commit()
-
-        return jsonify({"message": "Appointment booked successfully"}), 201
-
-    except Exception as error:
-        connection.rollback()
-        print("Booking error:", error)
-        return jsonify({"message": "Booking failed. Check the backend terminal."}), 500
-
+    except Exception:
+        app.logger.exception("Appointment history retrieval failed")
+        return jsonify({"message": "Could not retrieve appointments"}), 500
     finally:
         connection.close()
 
->>>>>>> origin/main
 
 # =========================
 # CANCEL APPOINTMENT
@@ -929,45 +566,29 @@ def book_appointment():
 
 @app.route("/appointments/<int:appointment_id>", methods=["DELETE"])
 def cancel_appointment_api(appointment_id):
+    connection = get_connection()
     try:
-        connection = get_connection()
         cursor = connection.cursor()
-
         cursor.execute("""
             UPDATE appointments
-            SET status = ?
-            WHERE id = ?
-        """, (
-            "Cancelled",
-            appointment_id
-        ))
-
+            SET status = 'Cancelled'
+            WHERE id = ? AND status != 'Cancelled'
+        """, (appointment_id,))
         connection.commit()
 
         if cursor.rowcount == 0:
-            connection.close()
-
             return jsonify({
-                "message": "Appointment not found"
+                "message": "Appointment not found or already cancelled"
             }), 404
-
-        connection.close()
 
         return jsonify({
             "message": "Appointment cancelled successfully"
         }), 200
-
-    except Exception as error:
-        print("CANCEL ERROR:", error)
-
-        return jsonify({
-            "message": str(error)
-        }), 500
-
-
-# =========================
-# RESCHEDULE APPOINTMENT
-# =========================
+    except Exception:
+        app.logger.exception("Appointment cancellation failed")
+        return jsonify({"message": "Could not cancel appointment"}), 500
+    finally:
+        connection.close()
 
 
 # =========================
@@ -976,314 +597,149 @@ def cancel_appointment_api(appointment_id):
 
 @app.route("/appointments/<int:appointment_id>", methods=["PUT"])
 def reschedule_appointment_api(appointment_id):
-    try:
-        data = request.get_json()
-
-<<<<<<< HEAD
-        if not data:
-            return jsonify({
-                "message": "No data received"
-=======
+    data = request.get_json(silent=True) or {}
     appointment_date = data.get("appointment_date")
     appointment_time = data.get("appointment_time")
 
-    # Validate required fields
     if not appointment_date or not appointment_time:
         return jsonify({
-            "message": "Appointment date and time are required."
+            "message": "Appointment date and time are required"
         }), 400
 
-    # Allowed appointment slots
-    allowed_time_slots = {
-        "09:00",
-        "10:00",
-        "11:00",
-        "14:00",
-        "15:00",
-        "16:00",
-        "17:00",
-        "18:00",
-        "19:00",
-        "20:00"
+    allowed_slots = {
+        "09:00", "10:00", "11:00", "14:00", "15:00",
+        "16:00", "17:00", "18:00", "19:00", "20:00"
     }
 
-    if appointment_time not in allowed_time_slots:
-        return jsonify({
-            "message": "Invalid appointment time slot."
-        }), 400
+    if appointment_time not in allowed_slots:
+        return jsonify({"message": "Invalid appointment time slot"}), 400
 
-    # Validate appointment date format
     try:
         selected_date = datetime.strptime(
-            appointment_date,
-            "%Y-%m-%d"
+            appointment_date, "%Y-%m-%d"
         ).date()
     except ValueError:
-        return jsonify({
-            "message": "Invalid appointment date format."
-        }), 400
+        return jsonify({"message": "Invalid appointment date format"}), 400
 
-    current_datetime = datetime.now()
-    today = current_datetime.date()
+    now = datetime.now()
 
-    # Reject past dates
-    if selected_date < today:
-        return jsonify({
-            "message": "Cannot reschedule to a past date."
-        }), 400
+    if selected_date < now.date():
+        return jsonify({"message": "Cannot reschedule to a past date"}), 400
 
-    # Reject already-passed time if rescheduling for today
-    if selected_date == today:
-
-        selected_datetime = datetime.strptime(
+    if selected_date == now.date():
+        selected_time = datetime.strptime(
             f"{appointment_date} {appointment_time}",
             "%Y-%m-%d %H:%M"
         )
-
-        if selected_datetime <= current_datetime:
+        if selected_time <= now:
             return jsonify({
-                "message": "This appointment time has already passed."
->>>>>>> origin/main
+                "message": "This appointment time has already passed"
             }), 400
 
-        appointment_date = data.get("appointment_date")
-        appointment_time = data.get("appointment_time")
-
-<<<<<<< HEAD
-        if not appointment_date or not appointment_time:
-            return jsonify({
-                "message": "Appointment date and time are required"
-            }), 400
-
-        # Use the database function
-        reschedule_appointment(
-            appointment_id,
-            appointment_date,
-            appointment_time
-        )
-
-        # Check whether appointment exists
-        connection = get_connection()
+    connection = get_connection()
+    try:
         cursor = connection.cursor()
 
         cursor.execute("""
-            SELECT id
+            SELECT doctor_id, status
             FROM appointments
             WHERE id = ?
         """, (appointment_id,))
-
         appointment = cursor.fetchone()
 
-        connection.close()
-
         if appointment is None:
-            return jsonify({
-                "message": "Appointment not found"
-            }), 404
+            return jsonify({"message": "Appointment not found"}), 404
 
+        doctor_id, status = appointment
+
+        if status == "Cancelled":
+            return jsonify({
+                "message": "Cancelled appointments cannot be rescheduled"
+            }), 400
+
+        cursor.execute("""
+            SELECT id FROM appointments
+            WHERE doctor_id = ?
+              AND appointment_date = ?
+              AND appointment_time = ?
+              AND id != ?
+              AND status != 'Cancelled'
+        """, (
+            doctor_id, appointment_date, appointment_time, appointment_id
+        ))
+
+        if cursor.fetchone():
+            return jsonify({
+                "message": "This time slot is already booked for this doctor"
+            }), 409
+
+        cursor.execute("""
+            UPDATE appointments
+            SET appointment_date = ?,
+                appointment_time = ?,
+                status = 'Rescheduled'
+            WHERE id = ?
+        """, (appointment_date, appointment_time, appointment_id))
+
+        connection.commit()
         return jsonify({
             "message": "Appointment rescheduled successfully"
         }), 200
-
-    except Exception as error:
-        print("RESCHEDULE ERROR:", error)
-=======
-    # Get the existing appointment
-    cursor.execute("""
-        SELECT doctor_id, status
-        FROM appointments
-        WHERE id = ?
-    """, (appointment_id,))
-
-    appointment = cursor.fetchone()
-
-    if appointment is None:
+    except Exception:
+        app.logger.exception("Appointment rescheduling failed")
+        return jsonify({"message": "Could not reschedule appointment"}), 500
+    finally:
         connection.close()
 
-        return jsonify({
-            "message": "Appointment not found."
-        }), 404
-
-    doctor_id = appointment[0]
-    current_status = appointment[1]
-
-    # Do not reschedule a cancelled appointment
-    if current_status == "Cancelled":
-        connection.close()
-
-        return jsonify({
-            "message": "Cancelled appointments cannot be rescheduled."
-        }), 400
-
-    # Prevent double-booking the doctor
-    cursor.execute("""
-        SELECT id
-        FROM appointments
-        WHERE doctor_id = ?
-        AND appointment_date = ?
-        AND appointment_time = ?
-        AND id != ?
-        AND status != 'Cancelled'
-    """, (
-        doctor_id,
-        appointment_date,
-        appointment_time,
-        appointment_id
-    ))
-
-    existing_appointment = cursor.fetchone()
-
-    if existing_appointment:
-        connection.close()
-
-        return jsonify({
-            "message": "This time slot is already booked for this doctor."
-        }), 409
-
-    # Update appointment
-    cursor.execute("""
-        UPDATE appointments
-        SET appointment_date = ?,
-            appointment_time = ?,
-            status = ?
-        WHERE id = ?
-    """, (
-        appointment_date,
-        appointment_time,
-        "Rescheduled",
-        appointment_id
-    ))
-
-    connection.commit()
-    connection.close()
->>>>>>> origin/main
-
-        return jsonify({
-            "message": str(error)
-        }), 500
-
-<<<<<<< HEAD
 
 # =========================
-# FEEDBACK
+# SUBMIT FEEDBACK
 # =========================
 
 @app.route("/feedback", methods=["POST"])
 def submit_feedback():
+    data = request.get_json(silent=True) or {}
+
+    user_id = data.get("user_id", data.get("patient_id"))
+    doctor_id = data.get("doctor_id")
+    rating = data.get("rating")
+    comment = data.get("comment", data.get("comments", ""))
+
+    if user_id is None or doctor_id is None or rating is None:
+        return jsonify({
+            "message": "User ID, doctor ID and rating are required"
+        }), 400
+
     try:
-        data = request.get_json()
-=======
+        user_id = int(user_id)
+        doctor_id = int(doctor_id)
+        rating = int(rating)
 
-# =========================
-# PATIENT APPOINTMENTS
-# =========================
-
-@app.route("/appointments/<int:patient_id>", methods=["GET"])
-def get_patient_appointments(patient_id):
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        SELECT id,
-               patient_id,
-               doctor_id,
-               appointment_date,
-               appointment_time,
-               status
-        FROM appointments
-        WHERE patient_id = ?
-        ORDER BY appointment_date, appointment_time
-    """, (patient_id,))
-
-    appointments = cursor.fetchall()
-
-    connection.close()
->>>>>>> origin/main
-
-        if not data:
-            return jsonify({
-                "message": "No data received"
-            }), 400
-
-        user_id = data.get("user_id")
-        doctor_id = data.get("doctor_id")
-        rating = data.get("rating")
-        comment = data.get("comment")
-
-        if user_id is None:
-            return jsonify({
-                "message": "User ID is required"
-            }), 400
-
-        if doctor_id is None:
-            return jsonify({
-                "message": "Doctor ID is required"
-            }), 400
-
-        if rating is None:
-            return jsonify({
-                "message": "Rating is required"
-            }), 400
-
-        if not 1 <= int(rating) <= 5:
-            return jsonify({
-                "message": "Rating must be between 1 and 5"
-            }), 400
+        if not 1 <= rating <= 5:
+            return jsonify({"message": "Rating must be between 1 and 5"}), 400
 
         connection = get_connection()
-        cursor = connection.cursor()
+        try:
+            cursor = connection.cursor()
+            cursor.execute("SELECT id FROM users WHERE id = ?", (user_id,))
+            if cursor.fetchone() is None:
+                return jsonify({"message": "User not found"}), 404
 
-        # Check if user exists
-        cursor.execute("""
-            SELECT id
-            FROM users
-            WHERE id = ?
-        """, (int(user_id),))
-
-        user = cursor.fetchone()
-
-        if user is None:
+            cursor.execute("SELECT id FROM doctors WHERE id = ?", (doctor_id,))
+            if cursor.fetchone() is None:
+                return jsonify({"message": "Doctor not found"}), 404
+        finally:
             connection.close()
 
-            return jsonify({
-                "message": "User not found"
-            }), 404
+        add_feedback(user_id, doctor_id, rating, comment)
 
-        # Check if doctor exists
-        cursor.execute("""
-            SELECT id
-            FROM doctors
-            WHERE id = ?
-        """, (int(doctor_id),))
+        return jsonify({"message": "Feedback submitted successfully"}), 201
 
-        doctor = cursor.fetchone()
-
-        if doctor is None:
-            connection.close()
-
-            return jsonify({
-                "message": "Doctor not found"
-            }), 404
-
-        connection.close()
-
-        add_feedback(
-            int(user_id),
-            int(doctor_id),
-            int(rating),
-            comment
-        )
-
-        return jsonify({
-            "message": "Feedback submitted successfully"
-        }), 201
-
-    except Exception as error:
-        print("FEEDBACK ERROR:", error)
-
-        return jsonify({
-            "message": str(error)
-        }), 500
+    except (ValueError, TypeError):
+        return jsonify({"message": "Invalid ID or rating"}), 400
+    except Exception:
+        app.logger.exception("Feedback submission failed")
+        return jsonify({"message": "Could not submit feedback"}), 500
 
 
 # =========================
@@ -1293,352 +749,196 @@ def get_patient_appointments(patient_id):
 @app.route("/feedback/doctor/<int:doctor_id>", methods=["GET"])
 def doctor_feedback(doctor_id):
     try:
-        feedback = get_doctor_feedback(doctor_id)
-
-        result = []
-
-        for item in feedback:
-            result.append({
-                "id": item[0],
-                "user_id": item[1],
-                "doctor_id": item[2],
-                "rating": item[3],
-                "comment": item[4],
-                "created_at": item[5],
-                "user_name": item[6]
-            })
-
-        return jsonify(result), 200
-
-    except Exception as error:
-        print("DOCTOR FEEDBACK ERROR:", error)
-
-        return jsonify({
-            "message": str(error)
-        }), 500
-
-
-# =========================
-# DOCTOR APPOINTMENTS
-# =========================
-
-@app.route("/doctor/<int:doctor_id>/appointments", methods=["GET"])
-def doctor_appointments(doctor_id):
-    try:
-        appointments = get_doctor_appointments(doctor_id)
-
-        result = []
-
-        for appointment in appointments:
-            result.append({
-                "id": appointment[0],
-                "user_id": appointment[1],
-                "patient_name": appointment[2],
-                "hospital_id": appointment[3],
-                "appointment_date": appointment[4],
-                "appointment_time": appointment[5],
-                "status": appointment[6]
-            })
-
-        return jsonify(result), 200
-
-    except Exception as error:
-        print("DOCTOR APPOINTMENTS ERROR:", error)
-
-        return jsonify({
-            "message": str(error)
-        }), 500
-
-
-# =========================
-# ADMIN USERS
-# =========================
-
-@app.route("/admin/users", methods=["GET"])
-def admin_users():
-    try:
-        users = get_all_users()
+        rows = get_doctor_feedback(doctor_id)
 
         return jsonify([
             {
-                "id": user[0],
-                "name": user[1],
-                "email": user[2],
-                "phone": user[3]
+                "id": row[0],
+                "user_id": row[1],
+                "doctor_id": row[2],
+                "rating": row[3],
+                "comment": row[4],
+                "created_at": row[5],
+                "user_name": row[6],
             }
-            for user in users
+            for row in rows
         ]), 200
-
-    except Exception as error:
-        print("ADMIN USERS ERROR:", error)
-
-        return jsonify({
-            "message": str(error)
-        }), 500
+    except Exception:
+        app.logger.exception("Doctor feedback retrieval failed")
+        return jsonify({"message": "Could not retrieve feedback"}), 500
 
 
 # =========================
-# ADMIN APPOINTMENTS
-# =========================
-
-@app.route("/admin/appointments", methods=["GET"])
-def admin_appointments():
-    try:
-        appointments = get_all_appointments()
-
-        return jsonify([
-            {
-                "id": appointment[0],
-                "user_id": appointment[1],
-                "patient_name": appointment[2],
-                "doctor_id": appointment[3],
-                "doctor_name": appointment[4],
-                "hospital_id": appointment[5],
-                "hospital_name": appointment[6],
-                "appointment_date": appointment[7],
-                "appointment_time": appointment[8],
-                "status": appointment[9]
-            }
-            for appointment in appointments
-        ]), 200
-
-    except Exception as error:
-        print("ADMIN APPOINTMENTS ERROR:", error)
-
-        return jsonify({
-            "message": str(error)
-        }), 500
-
-
-# =========================
-# START SERVER
+# AI SYMPTOM SUMMARY
 # =========================
 
 @app.route("/symptom-summary", methods=["POST"])
 def symptom_summary():
+    import re
+
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
+        symptoms = data.get("symptoms", "").strip()
 
-        if not data:
-            return jsonify({
-                "message": "No data received"
-            }), 400
-
-        symptoms = data.get("symptoms")
-
-        if not symptoms or not symptoms.strip():
+        if not symptoms:
             return jsonify({
                 "message": "Symptoms are required"
             }), 400
 
-        prompt = f"""
-You are a healthcare assistant for the AppointMe application.
+        summary = ""
 
-Your task is ONLY to summarize the symptoms reported by the patient.
-Do NOT diagnose the patient.
-Do NOT suggest diseases, medications, or treatments.
-Do NOT add symptoms that the patient did not mention.
+        # Try Gemini first
+        if gemini_client is not None:
+            prompt = f"""
+Extract only the key symptoms from the patient's description.
 
-Create a concise, professional summary that a doctor can quickly read.
+Rules:
+- Return a short, comma-separated list.
+- Include symptom duration when mentioned.
+- Remove conversational wording and repetition.
+- Do not repeat the full description.
+- Do not diagnose or recommend treatment.
+- Do not add symptoms that the patient did not report.
 
-Patient's reported symptoms:
+Example:
+Input: I have fever for five days, a cold, and my
+throat hurts when I swallow.
+Output: Fever for 5 days, cold, sore throat,
+pain while swallowing.
+
+Patient description:
 {symptoms}
-
-Return only the symptom summary.
 """
 
-        response = client.models.generate_content(
-            model="gemini-3.8-flash",
-            contents=prompt
-        )
+            try:
+                response = gemini_client.models.generate_content(
+                    model="gemini-3.8-flash",
+                    contents=prompt
+                )
+
+                summary = (response.text or "").strip()
+
+            except Exception as ai_error:
+                app.logger.warning(
+                    "Gemini unavailable; using local extraction: %s",
+                    ai_error
+                )
+
+        # Local fallback if Gemini fails or returns no text
+        if not summary:
+            text = symptoms.lower()
+            extracted = []
+
+            patterns = [
+                (
+                    r"\bfever\b",
+                    "Fever"
+                ),
+                (
+                    r"\bcold\b",
+                    "Cold"
+                ),
+                (
+                    r"\bsore throat\b|\bthroat pain\b|\bthroat hurts\b",
+                    "Sore throat"
+                ),
+                (
+                    r"\bpain while swallowing\b|\bpain when i swallow\b"
+                    r"|\bwhen i swallow\b|\bwhen i swallow anything\b",
+                    "Pain while swallowing"
+                ),
+                (
+                    r"\bcough\b",
+                    "Cough"
+                ),
+                (
+                    r"\bheadache\b",
+                    "Headache"
+                ),
+                (
+                    r"\bfatigue\b|\btiredness\b",
+                    "Fatigue"
+                ),
+                (
+                    r"\bbody aches?\b|\bbody pain\b",
+                    "Body aches"
+                ),
+                (
+                    r"\bnausea\b",
+                    "Nausea"
+                ),
+                (
+                    r"\bvomiting\b",
+                    "Vomiting"
+                ),
+                (
+                    r"\bdiarrhea\b",
+                    "Diarrhea"
+                ),
+                (
+                    r"\bshortness of breath\b|\bdifficulty breathing\b",
+                    "Shortness of breath"
+                ),
+            ]
+
+            for pattern, label in patterns:
+                if re.search(pattern, text) and label not in extracted:
+                    extracted.append(label)
+
+            # Preserve fever duration when stated
+            fever_duration = re.search(
+                r"\bfever\b.{0,40}?"
+                r"\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
+                r"\s+days?\b"
+                r"|\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
+                r"\s+days?\b.{0,30}?\bfever\b",
+                text
+            )
+
+            if "Fever" in extracted and fever_duration:
+                raw_duration = (
+                    fever_duration.group(1) or fever_duration.group(2)
+                )
+
+                number_words = {
+                    "one": "1",
+                    "two": "2",
+                    "three": "3",
+                    "four": "4",
+                    "five": "5",
+                    "six": "6",
+                    "seven": "7",
+                    "eight": "8",
+                    "nine": "9",
+                    "ten": "10",
+                }
+
+                days = number_words.get(raw_duration, raw_duration)
+                extracted[extracted.index("Fever")] = (
+                    f"Fever for {days} days"
+                )
+
+            if extracted:
+                summary = ", ".join(extracted)
+            else:
+                summary = (
+                    "Could not identify specific symptoms. "
+                    "Please review the patient's original description."
+                )
+
+        print("AI SYMPTOM SUMMARY:", summary)
 
         return jsonify({
-            "summary": response.text
+            "summary": summary
         }), 200
 
-    except Exception as error:
-        print("SYMPTOM SUMMARY ERROR:", error)
+    except Exception:
+        app.logger.exception("Symptom summary failed")
 
         return jsonify({
-            "message": str(error)
+            "message": "Symptom summary generation failed"
         }), 500
 
-
-# =========================
-# DOCTOR APPOINTMENTS
-# =========================
-
-@app.route("/doctor-appointments/<int:doctor_id>", methods=["GET"])
-def get_doctor_appointments(doctor_id):
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    cursor.execute("""
-    SELECT appointments.id,
-       appointments.patient_id,
-       users.name,
-       appointments.appointment_date,
-       appointments.appointment_time,
-       appointments.status,
-       appointments.symptoms,
-       appointments.symptom_summary
-
-        FROM appointments
-        JOIN users
-        ON appointments.patient_id = users.id
-        WHERE appointments.doctor_id = ?
-        ORDER BY appointments.appointment_date,
-                 appointments.appointment_time
-    """, (doctor_id,))
-
-    appointments = cursor.fetchall()
-
-    connection.close()
-
-    
-    return jsonify([
-        {
-            "id": appointment[0],
-            "patient_id": appointment[1],
-            "patient_name": appointment[2],
-            "appointment_date": appointment[3],
-            "appointment_time": appointment[4],
-            "status": appointment[5],
-            "symptoms": appointment[6],
-            "symptom_summary": appointment[7]
-        }
-        for appointment in appointments
-    ])
-
-
-# =========================
-# ADMIN - ALL APPOINTMENTS
-# =========================
-
-@app.route("/admin/appointments", methods=["GET"])
-def get_all_admin_appointments():
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        SELECT
-            appointments.id,
-            appointments.patient_id,
-            users.name,
-            appointments.doctor_id,
-            doctors.name,
-            appointments.appointment_date,
-            appointments.appointment_time,
-            appointments.status
-        FROM appointments
-        JOIN users
-        ON appointments.patient_id = users.id
-        JOIN doctors
-        ON appointments.doctor_id = doctors.id
-        WHERE appointments.status != 'Cancelled'
-        ORDER BY appointments.id ASC
-    """)
-
-    appointments = cursor.fetchall()
-
-    connection.close()
-
-    return jsonify([
-        {
-            "serial_number": index + 1,
-            "id": appointment[0],
-            "patient_id": appointment[1],
-            "patient_name": appointment[2],
-            "doctor_id": appointment[3],
-            "doctor_name": appointment[4],
-            "appointment_date": appointment[5],
-            "appointment_time": appointment[6],
-            "status": appointment[7]
-        }
-        for index, appointment in enumerate(appointments)
-    ])
-
-
-# =========================
-# SUBMIT FEEDBACK
-# =========================
-
-@app.route("/feedback", methods=["POST"])
-def submit_feedback():
-    data = request.get_json()
-
-    patient_id = data["patient_id"]
-    rating = data["rating"]
-    comments = data["comments"]
-
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        INSERT INTO feedback
-        (patient_id, rating, comments, status)
-        VALUES (?, ?, ?, ?)
-    """, (
-        patient_id,
-        rating,
-        comments,
-        "Pending"
-    ))
-
-    connection.commit()
-    connection.close()
-
-    return jsonify({
-        "message": "Feedback submitted successfully"
-    })
-
-
-# =========================
-# ADMIN STATISTICS
-# =========================
-
-@app.route("/admin-stats", methods=["GET"])
-def get_admin_stats():
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    # Count only approved doctors
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM doctor_accounts
-        WHERE status = 'Approved'
-    """)
-
-    total_doctors = cursor.fetchone()[0]
-
-    cursor.execute("SELECT COUNT(*) FROM users")
-
-    total_patients = cursor.fetchone()[0]
-
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM appointments
-        WHERE appointment_date = DATE('now')
-    """)
-
-    appointments_today = cursor.fetchone()[0]
-
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM feedback
-        WHERE status = 'Pending'
-    """)
-
-    pending_feedback = cursor.fetchone()[0]
-
-    connection.close()
-
-    return jsonify({
-        "total_doctors": total_doctors,
-        "total_patients": total_patients,
-        "appointments_today": appointments_today,
-        "pending_feedback": pending_feedback
-    })
 
 
 # =========================
@@ -1647,11 +947,4 @@ def get_admin_stats():
 
 if __name__ == "__main__":
     create_tables()
-<<<<<<< HEAD
-
-    app.run(
-        debug=True
-    )
-=======
     app.run(debug=True)
->>>>>>> origin/main

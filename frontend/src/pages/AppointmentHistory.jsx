@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 function AppointmentHistory() {
@@ -10,8 +11,9 @@ function AppointmentHistory() {
 
   const userId = localStorage.getItem("userId");
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     if (!userId) {
+      setAppointments([]);
       setMessage("Please login again to view your appointments.");
       setLoading(false);
       return;
@@ -22,56 +24,120 @@ function AppointmentHistory() {
         `http://127.0.0.1:5000/appointments/${userId}`
       );
 
-      if (!response.ok) {
-        throw new Error("Could not fetch appointments");
-      }
-
       const data = await response.json();
 
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Could not fetch appointments."
+        );
+      }
+
+      if (!Array.isArray(data)) {
+        throw new Error("Unexpected appointment data received.");
+      }
+
       setAppointments(data);
+      setMessage("");
     } catch (error) {
       console.error("Error fetching appointments:", error);
-      setMessage("Could not load your appointments.");
+      setMessage(error.message || "Could not load your appointments.");
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchAppointments();
   }, [userId]);
 
-  const handleCancel = async (appointmentId) => {
+  useEffect(() => {
+  let ignore = false;
+
+  const loadAppointments = async () => {
+    if (!userId) {
+      setAppointments([]);
+      setMessage("Please login again to view your appointments.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch(
-        `http://127.0.0.1:5000/appointments/${appointmentId}`,
-        {
-          method: "DELETE",
-        }
+        `http://127.0.0.1:5000/appointments/${userId}`
       );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Could not cancel appointment");
+        throw new Error(
+          data.message || "Could not fetch appointments."
+        );
       }
 
-      setMessage(data.message);
+      if (!Array.isArray(data)) {
+        throw new Error("Unexpected appointment data received.");
+      }
 
-      fetchAppointments();
+      if (!ignore) {
+        setAppointments(data);
+        setMessage("");
+      }
+    } catch (error) {
+      if (!ignore) {
+        console.error("Error fetching appointments:", error);
+        setMessage(error.message || "Could not load your appointments.");
+      }
+    } finally {
+      if (!ignore) {
+        setLoading(false);
+      }
+    }
+  };
+
+  loadAppointments();
+
+  return () => {
+    ignore = true;
+  };
+}, [userId]);
+
+  const handleCancel = async (appointmentId) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to cancel this appointment?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:5000/appointments/${appointmentId}`,
+        { method: "DELETE" }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Could not cancel appointment."
+        );
+      }
+
+      setMessage(data.message || "Appointment cancelled successfully.");
+      await fetchAppointments();
     } catch (error) {
       console.error("Cancel error:", error);
-      setMessage(error.message);
+      setMessage(error.message || "Could not cancel appointment.");
     }
   };
 
   const handleReschedule = async (appointmentId) => {
-    const newDate = prompt("Enter new appointment date (YYYY-MM-DD):");
-    const newTime = prompt("Enter new appointment time (HH:MM):");
+    const newDate = window.prompt(
+      "Enter new appointment date (YYYY-MM-DD):"
+    );
 
-    if (!newDate || !newTime) {
-      return;
-    }
+    if (!newDate) return;
+
+    const newTime = window.prompt(
+      "Enter new appointment time (HH:MM, e.g. 14:00):"
+    );
+
+    if (!newTime) return;
 
     try {
       const response = await fetch(
@@ -92,59 +158,18 @@ function AppointmentHistory() {
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Could not reschedule appointment"
+          data.message || "Could not reschedule appointment."
         );
       }
 
-      setMessage(data.message);
-
-      fetchAppointments();
+      setMessage(data.message || "Appointment rescheduled successfully.");
+      await fetchAppointments();
     } catch (error) {
-<<<<<<< HEAD
-      console.error("Error rescheduling appointment:", error);
-      alert(error.message || "Could not reschedule appointment.");
-    }
-  };
-
-  // =========================
-  // FETCH APPOINTMENTS
-  // =========================
-  useEffect(() => {
-    const fetchAppointments = async () => {
-      try {
-        const response = await fetch(
-          "http://127.0.0.1:5000/appointments/1"
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.message || "Failed to fetch appointments"
-          );
-        }
-
-        setAppointments(data);
-      } catch (error) {
-        console.error("Error fetching appointments:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAppointments();
-  }, []);
-
-  // =========================
-  // LOADING
-  // =========================
-=======
       console.error("Reschedule error:", error);
-      setMessage(error.message);
+      setMessage(error.message || "Could not reschedule appointment.");
     }
   };
 
->>>>>>> origin/main
   if (loading) {
     return <p>Loading appointments...</p>;
   }
@@ -153,7 +178,11 @@ function AppointmentHistory() {
     <div style={{ padding: "30px" }}>
       <h1>Appointment History</h1>
 
-      {message && <p>{message}</p>}
+      {message && (
+        <p role="status" aria-live="polite">
+          {message}
+        </p>
+      )}
 
       {appointments.length === 0 ? (
         <div>
@@ -176,65 +205,42 @@ function AppointmentHistory() {
               }}
             >
               <p>
-                <strong>Appointment ID:</strong>{" "}
-                {appointment.id}
+                <strong>Appointment ID:</strong> {appointment.id}
               </p>
 
               <p>
-                <strong>Doctor ID:</strong>{" "}
-                {appointment.doctor_id}
+                <strong>Doctor ID:</strong> {appointment.doctor_id}
               </p>
 
               <p>
-                <strong>Date:</strong>{" "}
-                {appointment.appointment_date}
+                <strong>Date:</strong> {appointment.appointment_date}
               </p>
 
               <p>
-                <strong>Time:</strong>{" "}
-                {appointment.appointment_time}
+                <strong>Time:</strong> {appointment.appointment_time}
               </p>
 
               <p>
-                <strong>Status:</strong>{" "}
-                {appointment.status}
+                <strong>Status:</strong> {appointment.status}
               </p>
 
-<<<<<<< HEAD
-                {/* =========================
-                    CANCEL BUTTON
-                   ========================= */}
-
-                {appointment.status === "Booked" && (
-=======
               {appointment.status !== "Cancelled" && (
                 <div>
->>>>>>> origin/main
                   <button
-                    onClick={() =>
-                      handleCancel(appointment.id)
-                    }
+                    onClick={() => handleCancel(appointment.id)}
                   >
                     Cancel Appointment
                   </button>
 
-<<<<<<< HEAD
-                {/* =========================
-                    RESCHEDULE BUTTON
-                   ========================= */}
-
-                {(appointment.status === "Booked" ||
-                  appointment.status === "Rescheduled") && (
-=======
->>>>>>> origin/main
-                  <button
-                    onClick={() =>
-                      handleReschedule(appointment.id)
-                    }
-                    style={{ marginLeft: "10px" }}
-                  >
-                    Reschedule Appointment
-                  </button>
+                  {(appointment.status === "Booked" ||
+                    appointment.status === "Rescheduled") && (
+                    <button
+                      onClick={() => handleReschedule(appointment.id)}
+                      style={{ marginLeft: "10px" }}
+                    >
+                      Reschedule Appointment
+                    </button>
+                  )}
                 </div>
               )}
             </div>

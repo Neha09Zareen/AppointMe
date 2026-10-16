@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Feedback.css";
 
@@ -9,14 +10,70 @@ function Feedback() {
   const [comments, setComments] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState("");
+  const [appointments, setAppointments] = useState([]);
+  const [doctorId, setDoctorId] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const userId = localStorage.getItem("userId");
+
+  useEffect(() => {
+    const loadAppointments = async () => {
+      if (!userId) {
+        setMessage("Please log in again before submitting feedback.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `http://127.0.0.1:5000/appointments/${userId}`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Could not load appointments.");
+        }
+
+        const validAppointments = Array.isArray(data)
+          ? data.filter(
+              (appointment) =>
+                appointment.doctor_id &&
+                appointment.status !== "Cancelled"
+            )
+          : [];
+
+        setAppointments(validAppointments);
+
+        if (validAppointments.length > 0) {
+          setDoctorId(String(validAppointments[0].doctor_id));
+        } else {
+          setMessage(
+            "No active appointments found. Book an appointment before submitting feedback."
+          );
+        }
+      } catch (error) {
+        console.error("Error loading appointments:", error);
+        setMessage(error.message || "Could not load appointments.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAppointments();
+  }, [userId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    const userId = localStorage.getItem("userId");
+    setMessage("");
 
     if (!userId) {
-      setMessage("Please login again before submitting feedback.");
+      setMessage("Please log in again before submitting feedback.");
+      return;
+    }
+
+    if (!doctorId) {
+      setMessage("Please select a doctor from your appointments.");
       return;
     }
 
@@ -34,41 +91,72 @@ function Feedback() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
+            user_id: Number(userId),
             patient_id: Number(userId),
+            doctor_id: Number(doctorId),
             rating: Number(rating),
-            comments: comments,
+            comment: comments.trim(),
+            comments: comments.trim(),
           }),
         }
       );
 
       const data = await response.json();
 
-      if (response.ok) {
-        setSubmitted(true);
-        setMessage(data.message);
-      } else {
-        setMessage(
-          data.message || "Failed to submit feedback"
-        );
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to submit feedback.");
       }
+
+      setSubmitted(true);
+      setMessage(data.message || "Feedback submitted successfully.");
     } catch (error) {
       console.error("Feedback error:", error);
-      setMessage("Could not connect to backend");
+      setMessage(error.message || "Could not submit feedback.");
     }
   };
+
+  if (loading) {
+    return <p>Loading your appointments...</p>;
+  }
 
   return (
     <div className="feedback-page">
       <div className="feedback-card">
-
         <h1>Feedback</h1>
 
         {!submitted ? (
           <form onSubmit={handleSubmit}>
-
-            <label>Rating</label>
+            <label htmlFor="doctor">Doctor</label>
 
             <select
+              id="doctor"
+              value={doctorId}
+              onChange={(e) => setDoctorId(e.target.value)}
+              required
+              disabled={appointments.length === 0}
+            >
+              {appointments.length === 0 && (
+                <option value="">No active appointments</option>
+              )}
+
+              {appointments.map((appointment) => (
+                <option
+                  key={appointment.id}
+                  value={appointment.doctor_id}
+                >
+                  {appointment.doctor_name ||
+                    appointment.doctor ||
+                    `Doctor ID: ${appointment.doctor_id}`}
+                  {" — Appointment #"}
+                  {appointment.id}
+                </option>
+              ))}
+            </select>
+
+            <label htmlFor="rating">Rating</label>
+
+            <select
+              id="rating"
               value={rating}
               onChange={(e) => setRating(e.target.value)}
               required
@@ -81,12 +169,10 @@ function Feedback() {
               <option value="5">⭐⭐⭐⭐⭐ 5 - Excellent</option>
             </select>
 
-            <br />
-            <br />
-
-            <label>Comments</label>
+            <label htmlFor="comments">Comments</label>
 
             <textarea
+              id="comments"
               placeholder="Write your feedback..."
               value={comments}
               onChange={(e) => setComments(e.target.value)}
@@ -94,13 +180,12 @@ function Feedback() {
               required
             />
 
-            <br />
-            <br />
-
-            <button type="submit">
+            <button
+              type="submit"
+              disabled={appointments.length === 0}
+            >
               Submit Feedback
             </button>
-
           </form>
         ) : (
           <div>
@@ -121,10 +206,7 @@ function Feedback() {
           </div>
         )}
 
-        {!submitted && message && (
-          <p>{message}</p>
-        )}
-
+        {!submitted && message && <p>{message}</p>}
       </div>
     </div>
   );
